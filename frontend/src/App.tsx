@@ -3,11 +3,13 @@ import { Routes, Route } from 'react-router'
 import { AuthProvider } from './contexts/AuthContext'
 import { AuthenticatedLayout } from './layouts/AuthenticatedLayout'
 import { UnauthenticatedLayout } from './layouts/UnauthenticatedLayout'
+import { Toaster } from 'sonner'
 
 const SignIn = lazy(() => import('./pages/SignIn'))
 const SignUp = lazy(() => import('./pages/SignUp'))
 const AuthCallback = lazy(() => import('./pages/AuthCallback'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
+const ProfileEdit = lazy(() => import('./pages/profile/Edit'))
 
 function App() {
   return (
@@ -25,9 +27,11 @@ function App() {
           </Route>
           <Route element={<AuthenticatedLayout />}>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/profile" element={<ProfileEdit />} />
           </Route>
         </Routes>
       </Suspense>
+      <Toaster />
     </AuthProvider>
   )
 }
