@@ -3,6 +3,7 @@ import { cors } from "hono/cors"
 import type { Env } from "./types/env.d.ts"
 import health from "./routes/health.ts"
 import auth from "./routes/auth.ts"
+import profiles from "./routes/profiles.ts"
 
 const app = new Hono<{ Bindings: Env }>()
 
@@ -28,5 +29,6 @@ app.get("/", (c) => {
 
 app.route("/", health)
 app.route("/", auth)
+app.route("/", profiles)
 
 export default app
