@@ -1,0 +1,16 @@
+{
+  "name": "sondering",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter frontend dev\" \"pnpm --filter workers dev\"",
+    "frontend": "pnpm --filter frontend dev",
+    "workers": "pnpm --filter workers dev",
+    "build": "pnpm --filter frontend build",
+    "deploy:workers": "pnpm --filter workers deploy",
+    "typecheck": "pnpm --filter workers typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
