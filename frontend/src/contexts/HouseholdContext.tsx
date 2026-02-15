@@ -11,7 +11,7 @@ interface HouseholdContextValue {
 const HouseholdContext = createContext<HouseholdContextValue | null>(null);
 
 export function HouseholdProvider({ children }: { children: React.ReactNode }) {
-  const { household, loading, error, createHousehold, refetch } = useHousehold();
+  const { household, loading, createHousehold, refetch } = useHousehold();
 
   if (loading) {
     return (
