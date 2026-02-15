@@ -21,10 +21,7 @@ export function UnauthenticatedLayout() {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border">
         <div className="container mx-auto px-4 py-4 flex items-center gap-3">
-          <Logo className="size-8" />
-          <span className="font-display text-xl lowercase tracking-wider">
-            Sondering
-          </span>
+          <Logo className="size-12" />
         </div>
       </header>
       <main className="container mx-auto px-4 py-8">

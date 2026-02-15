@@ -30,10 +30,7 @@ export function AuthenticatedLayout() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <Link to="/" className="flex items-center gap-3">
-              <Logo className="size-8" />
-              <span className="font-display text-xl lowercase tracking-wider">
-                Sondering
-              </span>
+              <Logo className="size-12" />
             </Link>
             <div className="flex gap-4">
               {navLinks.map(({ to, label }) => (
