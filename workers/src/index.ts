@@ -5,6 +5,7 @@ import health from "./routes/health.ts";
 import auth from "./routes/auth.ts";
 import profiles from "./routes/profiles.ts";
 import households from "./routes/households.ts";
+import entities from "./routes/entities.ts";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -32,5 +33,6 @@ app.route("/", health);
 app.route("/", auth);
 app.route("/", profiles);
 app.route("/", households);
+app.route("/", entities);
 
 export default app;
