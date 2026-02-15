@@ -1,6 +1,17 @@
 import { Context, MiddlewareHandler } from "hono"
-import { jwtVerify } from "jose"
+import { createRemoteJWKSet, jwtVerify } from "jose"
 import type { Env, User, Variables } from "../types/env.d.ts"
+
+let jwks: ReturnType<typeof createRemoteJWKSet> | null = null
+
+function getJWKS(supabaseUrl: string) {
+  if (!jwks) {
+    jwks = createRemoteJWKSet(
+      new URL(`${supabaseUrl}/auth/v1/.well-known/jwks.json`)
+    )
+  }
+  return jwks
+}
 
 export const authMiddleware: MiddlewareHandler<{
   Bindings: Env
@@ -14,10 +25,9 @@ export const authMiddleware: MiddlewareHandler<{
   const token = authHeader.substring(7)
 
   try {
-    const secret = new TextEncoder().encode(c.env.SUPABASE_JWT_SECRET)
-    const { payload } = await jwtVerify(token, secret, {
+    const keySet = getJWKS(c.env.SUPABASE_URL)
+    const { payload } = await jwtVerify(token, keySet, {
       audience: "authenticated",
-      algorithms: ["HS256"],
     })
 
     const userId = payload.sub
@@ -33,6 +43,7 @@ export const authMiddleware: MiddlewareHandler<{
     }
 
     c.set("user", user)
+    c.set("accessToken", token)
     await next()
   } catch (error) {
     if (error instanceof Error) {

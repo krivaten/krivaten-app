@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
 import type { Profile, ProfileUpdate } from '@/types/profile'
 
 export function useProfile() {
+  const { session, loading: authLoading } = useAuth()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -27,8 +29,13 @@ export function useProfile() {
   }, [])
 
   useEffect(() => {
+    if (authLoading) return
+    if (!session) {
+      setLoading(false)
+      return
+    }
     fetchProfile()
-  }, [fetchProfile])
+  }, [authLoading, session, fetchProfile])
 
   return { profile, loading, error, updateProfile, refetch: fetchProfile }
 }

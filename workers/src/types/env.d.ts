@@ -14,4 +14,5 @@ export interface User {
 
 export interface Variables {
   user: User
+  accessToken: string
 }
