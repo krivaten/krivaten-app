@@ -1,28 +1,28 @@
-import { Navigate, Outlet, Link, useLocation } from 'react-router'
-import { useAuth } from '@/contexts/AuthContext'
-import { Logo } from '@/components/Logo'
-import { Button } from '@/components/ui/button'
+import { Navigate, Outlet, Link, useLocation } from "react-router";
+import { useAuth } from "@/contexts/AuthContext";
+import { Logo } from "@/components/Logo";
+import { Button } from "@/components/ui/button";
 
 export function AuthenticatedLayout() {
-  const { user, loading, signOut } = useAuth()
-  const location = useLocation()
+  const { user, loading, signOut } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg">Loading...</div>
       </div>
-    )
+    );
   }
 
   if (!user) {
-    return <Navigate to="/signin" replace />
+    return <Navigate to="/signin" replace />;
   }
 
   const navLinks = [
-    { to: '/', label: 'Home' },
-    { to: '/profile', label: 'Profile' },
-  ]
+    { to: "/", label: "Home" },
+    { to: "/profile", label: "Profile" },
+  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -31,7 +31,9 @@ export function AuthenticatedLayout() {
           <div className="flex items-center gap-6">
             <Link to="/" className="flex items-center gap-3">
               <Logo className="size-8" />
-              <span className="font-display text-xl lowercase tracking-wider">Sondering</span>
+              <span className="font-display text-xl lowercase tracking-wider">
+                Sondering
+              </span>
             </Link>
             <div className="flex gap-4">
               {navLinks.map(({ to, label }) => (
@@ -39,7 +41,9 @@ export function AuthenticatedLayout() {
                   key={to}
                   to={to}
                   className={`text-sm hover:text-brand-800 transition-colors ${
-                    location.pathname === to ? 'text-brand-800 font-medium' : 'text-muted-foreground'
+                    location.pathname === to
+                      ? "text-brand-800 font-medium"
+                      : "text-muted-foreground"
                   }`}
                 >
                   {label}
@@ -59,5 +63,5 @@ export function AuthenticatedLayout() {
         <Outlet />
       </main>
     </div>
-  )
+  );
 }

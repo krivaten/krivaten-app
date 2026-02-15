@@ -28,5 +28,5 @@ export function Logo({ className, ...props }: React.SVGProps<SVGSVGElement>) {
         </linearGradient>
       </defs>
     </svg>
-  )
+  );
 }

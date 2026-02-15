@@ -1,22 +1,24 @@
-import { lazy, Suspense } from 'react'
-import { Routes, Route } from 'react-router'
-import { AuthProvider } from './contexts/AuthContext'
-import { AuthenticatedLayout } from './layouts/AuthenticatedLayout'
-import { UnauthenticatedLayout } from './layouts/UnauthenticatedLayout'
-import { Toaster } from 'sonner'
+import { lazy, Suspense } from "react";
+import { Routes, Route } from "react-router";
+import { AuthProvider } from "./contexts/AuthContext";
+import { AuthenticatedLayout } from "./layouts/AuthenticatedLayout";
+import { UnauthenticatedLayout } from "./layouts/UnauthenticatedLayout";
+import { Toaster } from "sonner";
 
-const SignIn = lazy(() => import('./pages/SignIn'))
-const SignUp = lazy(() => import('./pages/SignUp'))
-const AuthCallback = lazy(() => import('./pages/AuthCallback'))
-const Dashboard = lazy(() => import('./pages/Dashboard'))
-const ProfileEdit = lazy(() => import('./pages/profile/Edit'))
+const SignIn = lazy(() => import("./pages/SignIn"));
+const SignUp = lazy(() => import("./pages/SignUp"));
+const AuthCallback = lazy(() => import("./pages/AuthCallback"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const ProfileEdit = lazy(() => import("./pages/profile/Edit"));
 
 function App() {
   return (
     <AuthProvider>
       <Suspense
         fallback={
-          <div className="min-h-screen flex items-center justify-center">Loading...</div>
+          <div className="min-h-screen flex items-center justify-center">
+            Loading...
+          </div>
         }
       >
         <Routes>
@@ -33,7 +35,7 @@ function App() {
       </Suspense>
       <Toaster />
     </AuthProvider>
-  )
+  );
 }
 
-export default App
+export default App;
