@@ -16,3 +16,49 @@ export interface Variables {
   user: User;
   accessToken: string;
 }
+
+export interface Household {
+  id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Entity {
+  id: string;
+  household_id: string;
+  type: string;
+  name: string;
+  parent_id: string | null;
+  properties: Record<string, unknown>;
+  archived: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Observation {
+  id: string;
+  household_id: string;
+  entity_id: string;
+  observer_id: string;
+  observed_at: string;
+  category: string;
+  subcategory: string | null;
+  data: Record<string, unknown>;
+  notes: string | null;
+  tags: string[];
+  attachments: unknown[];
+  created_at: string;
+}
+
+export interface Relationship {
+  id: string;
+  household_id: string;
+  from_entity_id: string;
+  to_entity_id: string;
+  relationship_type: string;
+  properties: Record<string, unknown>;
+  valid_from: string | null;
+  valid_to: string | null;
+  created_at: string;
+}
