@@ -8,6 +8,7 @@ import households from "./routes/households.ts";
 import entities from "./routes/entities.ts";
 import observations from "./routes/observations.ts";
 import relationships from "./routes/relationships.ts";
+import exportRoutes from "./routes/export.ts";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -38,5 +39,6 @@ app.route("/", households);
 app.route("/", entities);
 app.route("/", observations);
 app.route("/", relationships);
+app.route("/", exportRoutes);
 
 export default app;
