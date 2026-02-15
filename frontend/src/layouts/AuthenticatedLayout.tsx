@@ -1,5 +1,6 @@
 import { Navigate, Outlet, Link, useLocation } from "react-router";
 import { useAuth } from "@/contexts/AuthContext";
+import { HouseholdProvider } from "@/contexts/HouseholdContext";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 
@@ -21,6 +22,8 @@ export function AuthenticatedLayout() {
 
   const navLinks = [
     { to: "/", label: "Home" },
+    { to: "/entities", label: "Entities" },
+    { to: "/observations", label: "Observations" },
     { to: "/profile", label: "Profile" },
   ];
 
@@ -57,7 +60,9 @@ export function AuthenticatedLayout() {
         </div>
       </nav>
       <main className="container mx-auto px-4 py-8">
-        <Outlet />
+        <HouseholdProvider>
+          <Outlet />
+        </HouseholdProvider>
       </main>
     </div>
   );

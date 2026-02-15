@@ -10,6 +10,9 @@ const SignUp = lazy(() => import("./pages/SignUp"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const ProfileEdit = lazy(() => import("./pages/profile/Edit"));
+const Entities = lazy(() => import("./pages/Entities"));
+const EntityDetail = lazy(() => import("./pages/EntityDetail"));
+const Observations = lazy(() => import("./pages/Observations"));
 
 function App() {
   return (
@@ -29,6 +32,9 @@ function App() {
           </Route>
           <Route element={<AuthenticatedLayout />}>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/entities" element={<Entities />} />
+            <Route path="/entities/:id" element={<EntityDetail />} />
+            <Route path="/observations" element={<Observations />} />
             <Route path="/profile" element={<ProfileEdit />} />
           </Route>
         </Routes>
