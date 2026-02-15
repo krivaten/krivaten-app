@@ -4,6 +4,7 @@ import type { Env } from "./types/env.d.ts";
 import health from "./routes/health.ts";
 import auth from "./routes/auth.ts";
 import profiles from "./routes/profiles.ts";
+import households from "./routes/households.ts";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -30,5 +31,6 @@ app.get("/", (c) => {
 app.route("/", health);
 app.route("/", auth);
 app.route("/", profiles);
+app.route("/", households);
 
 export default app;
