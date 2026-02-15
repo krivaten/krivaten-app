@@ -6,5 +6,3 @@ compatibility_flags = ["nodejs_compat"]
 [dev]
 port = 8787
 
-[vars]
-FRONTEND_URL = "http://localhost:5173"
