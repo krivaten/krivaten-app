@@ -52,6 +52,25 @@ export class ApiClient {
       body: data ? JSON.stringify(data) : undefined,
     });
   }
+
+  async post<T>(endpoint: string, data?: unknown): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: "POST",
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  async delete(endpoint: string): Promise<void> {
+    const url = `${this.baseUrl}${endpoint}`;
+    const authHeaders = await this.getAuthHeaders();
+    const response = await fetch(url, {
+      method: "DELETE",
+      headers: { ...authHeaders },
+    });
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    }
+  }
 }
 
 export const api = new ApiClient();
