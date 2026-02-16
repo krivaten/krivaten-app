@@ -3,6 +3,7 @@ import type { Env, Variables } from "../types/env.d.ts";
 import { authMiddleware } from "../middleware/auth";
 import { createSupabaseClientWithAuth } from "../lib/supabase";
 import { requireHouseholdId } from "../lib/household";
+import { validatePropertyKeys } from "../config/entityPropertyFields";
 
 const entities = new Hono<{ Bindings: Env; Variables: Variables }>();
 entities.use("*", authMiddleware);
@@ -90,6 +91,16 @@ entities.post("/api/entities", async (c) => {
     return c.json({ detail: "type and name are required" }, 400);
   }
 
+  if (body.properties && Object.keys(body.properties).length > 0) {
+    const unknownKeys = validatePropertyKeys(body.type, body.properties);
+    if (unknownKeys.length > 0) {
+      return c.json(
+        { detail: `Unknown property keys for type "${body.type}": ${unknownKeys.join(", ")}` },
+        400,
+      );
+    }
+  }
+
   const { data, error } = await supabase
     .from("entities")
     .insert({
@@ -126,6 +137,27 @@ entities.put("/api/entities/:id", async (c) => {
     body = await c.req.json();
   } catch {
     return c.json({ detail: "Invalid JSON body" }, 400);
+  }
+
+  if (body.properties && Object.keys(body.properties).length > 0) {
+    const { data: existing } = await supabase
+      .from("entities")
+      .select("type")
+      .eq("id", id)
+      .eq("household_id", householdId)
+      .single();
+
+    if (!existing) {
+      return c.json({ detail: "Entity not found" }, 404);
+    }
+
+    const unknownKeys = validatePropertyKeys(existing.type, body.properties);
+    if (unknownKeys.length > 0) {
+      return c.json(
+        { detail: `Unknown property keys for type "${existing.type}": ${unknownKeys.join(", ")}` },
+        400,
+      );
+    }
   }
 
   const updateData: Record<string, unknown> = {};

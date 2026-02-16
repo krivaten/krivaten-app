@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -18,6 +18,10 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import type { Entity, EntityCreate, EntityType } from "@/types/entity";
+import {
+  ENTITY_PROPERTY_FIELDS,
+  type PropertyFieldDef,
+} from "@/config/entityPropertyFields";
 
 const ENTITY_TYPES: { value: EntityType; label: string }[] = [
   { value: "person", label: "Person" },
@@ -30,6 +34,87 @@ const ENTITY_TYPES: { value: EntityType; label: string }[] = [
   { value: "process", label: "Process" },
 ];
 
+function PropertyField({
+  field,
+  value,
+  onChange,
+}: {
+  field: PropertyFieldDef;
+  value: unknown;
+  onChange: (val: unknown) => void;
+}) {
+  switch (field.type) {
+    case "text":
+      return (
+        <div className="space-y-2">
+          <Label>{field.label}</Label>
+          <Input
+            value={(value as string) ?? ""}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={field.label}
+          />
+        </div>
+      );
+    case "number":
+      return (
+        <div className="space-y-2">
+          <Label>{field.label}</Label>
+          <Input
+            type="number"
+            value={value !== undefined && value !== null ? String(value) : ""}
+            onChange={(e) =>
+              onChange(e.target.value === "" ? undefined : Number(e.target.value))
+            }
+            placeholder={field.label}
+          />
+        </div>
+      );
+    case "date":
+      return (
+        <div className="space-y-2">
+          <Label>{field.label}</Label>
+          <Input
+            type="date"
+            value={(value as string) ?? ""}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </div>
+      );
+    case "checkbox":
+      return (
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id={`prop-${field.key}`}
+            checked={(value as boolean) ?? false}
+            onCheckedChange={(checked) => onChange(checked === true)}
+          />
+          <Label htmlFor={`prop-${field.key}`}>{field.label}</Label>
+        </div>
+      );
+    case "select":
+      return (
+        <div className="space-y-2">
+          <Label>{field.label}</Label>
+          <Select
+            value={(value as string) ?? ""}
+            onValueChange={(v) => onChange(v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={`Select ${field.label.toLowerCase()}...`} />
+            </SelectTrigger>
+            <SelectContent>
+              {field.options?.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      );
+  }
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -40,8 +125,13 @@ interface Props {
 export function EntityForm({ open, onOpenChange, onSubmit, initialType }: Props) {
   const [name, setName] = useState("");
   const [type, setType] = useState<EntityType | "">(initialType ?? "");
-  const [properties, setProperties] = useState("");
+  const [properties, setProperties] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(false);
+
+  function handleTypeChange(newType: EntityType) {
+    setType(newType);
+    setProperties({});
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,31 +139,31 @@ export function EntityForm({ open, onOpenChange, onSubmit, initialType }: Props)
 
     setLoading(true);
     try {
-      let parsedProps: Record<string, unknown> = {};
-      if (properties.trim()) {
-        parsedProps = JSON.parse(properties);
+      const cleanedProps: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(properties)) {
+        if (val !== undefined && val !== null && val !== "") {
+          cleanedProps[key] = val;
+        }
       }
 
       await onSubmit({
         type,
         name: name.trim(),
-        properties: parsedProps,
+        properties: Object.keys(cleanedProps).length > 0 ? cleanedProps : undefined,
       });
       toast.success("Entity created!");
       setName("");
       setType(initialType ?? "");
-      setProperties("");
+      setProperties({});
       onOpenChange(false);
     } catch (err) {
-      if (err instanceof SyntaxError) {
-        toast.error("Invalid JSON in properties field");
-      } else {
-        toast.error(err instanceof Error ? err.message : "Failed to create entity");
-      }
+      toast.error(err instanceof Error ? err.message : "Failed to create entity");
     } finally {
       setLoading(false);
     }
   }
+
+  const fieldDefs = type ? ENTITY_PROPERTY_FIELDS[type] : [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -94,7 +184,10 @@ export function EntityForm({ open, onOpenChange, onSubmit, initialType }: Props)
           </div>
           <div className="space-y-2">
             <Label>Type</Label>
-            <Select value={type} onValueChange={(v) => setType(v as EntityType)}>
+            <Select
+              value={type}
+              onValueChange={(v) => handleTypeChange(v as EntityType)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select type..." />
               </SelectTrigger>
@@ -107,16 +200,20 @@ export function EntityForm({ open, onOpenChange, onSubmit, initialType }: Props)
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="entity-properties">Properties (JSON, optional)</Label>
-            <Textarea
-              id="entity-properties"
-              value={properties}
-              onChange={(e) => setProperties(e.target.value)}
-              placeholder='{"variety": "Roma", "planted": "2026-03-01"}'
-              rows={3}
-            />
-          </div>
+          {fieldDefs.length > 0 && (
+            <div className="space-y-3">
+              {fieldDefs.map((field) => (
+                <PropertyField
+                  key={field.key}
+                  field={field}
+                  value={properties[field.key]}
+                  onChange={(val) =>
+                    setProperties((prev) => ({ ...prev, [field.key]: val }))
+                  }
+                />
+              ))}
+            </div>
+          )}
           <Button type="submit" disabled={loading || !name.trim() || !type} className="w-full">
             {loading ? "Creating..." : "Create Entity"}
           </Button>
