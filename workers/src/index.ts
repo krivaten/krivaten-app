@@ -1,14 +1,14 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import type { Env } from "./types/env.d.ts";
-import health from "./routes/health.ts";
-import auth from "./routes/auth.ts";
-import profiles from "./routes/profiles.ts";
-import households from "./routes/households.ts";
-import entities from "./routes/entities.ts";
-import observations from "./routes/observations.ts";
-import relationships from "./routes/relationships.ts";
-import exportRoutes from "./routes/export.ts";
+
+import health from "./routes/health";
+import auth from "./routes/auth";
+import profiles from "./routes/profiles";
+import households from "./routes/households";
+import entities from "./routes/entities";
+import observations from "./routes/observations";
+import relationships from "./routes/relationships";
+import exportRoutes from "./routes/export";
 
 const app = new Hono<{ Bindings: Env }>();
 

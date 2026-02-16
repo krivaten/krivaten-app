@@ -1,18 +1,18 @@
-export interface Env {
+interface Env {
   SUPABASE_URL: string;
   SUPABASE_KEY: string;
   SUPABASE_JWT_SECRET: string;
   FRONTEND_URL: string;
 }
 
-export interface User {
+interface User {
   id: string;
   email: string | null;
   role: string | null;
   metadata: Record<string, unknown>;
 }
 
-export interface Variables {
+interface Variables {
   user: User;
   accessToken: string;
 }

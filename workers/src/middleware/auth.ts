@@ -1,6 +1,6 @@
 import { Context, MiddlewareHandler } from "hono";
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import type { Env, User, Variables } from "../types/env.d.ts";
+
 
 let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 
