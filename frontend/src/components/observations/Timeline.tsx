@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { State } from "@/lib/state";
 import type { Observation } from "@/types/observation";
 
 const TYPE_COLORS: Record<string, string> = {
@@ -33,17 +34,18 @@ function timeAgo(dateStr: string): string {
 
 interface Props {
   observations: Observation[];
-  loading: boolean;
+  state: State;
+  loadingMore?: boolean;
   hasMore: boolean;
   onLoadMore: () => void;
 }
 
-export function Timeline({ observations, loading, hasMore, onLoadMore }: Props) {
-  if (loading && observations.length === 0) {
+export function Timeline({ observations, state, loadingMore, hasMore, onLoadMore }: Props) {
+  if (state === State.INITIAL || state === State.PENDING) {
     return <div className="text-muted-foreground py-8 text-center">Loading observations...</div>;
   }
 
-  if (observations.length === 0) {
+  if (state === State.NONE) {
     return <div className="text-muted-foreground py-8 text-center">No observations yet.</div>;
   }
 
@@ -97,8 +99,8 @@ export function Timeline({ observations, loading, hasMore, onLoadMore }: Props) 
 
       {hasMore && (
         <div className="text-center pt-2">
-          <Button variant="outline" size="sm" onClick={onLoadMore} disabled={loading}>
-            {loading ? "Loading..." : "Load More"}
+          <Button variant="outline" size="sm" onClick={onLoadMore} disabled={loadingMore}>
+            {loadingMore ? "Loading..." : "Load More"}
           </Button>
         </div>
       )}

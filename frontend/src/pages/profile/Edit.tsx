@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useProfile } from "@/hooks/useProfile";
+import { State } from "@/lib/state";
 import { useAuth } from "@/contexts/AuthContext";
 import { AvatarUpload } from "@/components/AvatarUpload";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { toast } from "sonner";
 
 export default function ProfileEdit() {
   const { user } = useAuth();
-  const { profile, loading, error, updateProfile } = useProfile();
+  const { profile, state, error, updateProfile } = useProfile();
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -42,11 +43,11 @@ export default function ProfileEdit() {
     }
   };
 
-  if (loading) {
+  if (state === State.INITIAL || state === State.PENDING) {
     return <div className="text-center py-8">Loading profile...</div>;
   }
 
-  if (error) {
+  if (state === State.ERROR) {
     return <div className="text-center py-8 text-destructive">{error}</div>;
   }
 

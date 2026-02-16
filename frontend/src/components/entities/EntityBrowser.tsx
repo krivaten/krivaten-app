@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { useEntities } from "@/hooks/useEntities";
+import { State } from "@/lib/state";
 import { EntityForm } from "./EntityForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +37,7 @@ export function EntityBrowser() {
   const [formOpen, setFormOpen] = useState(false);
 
   const typeFilter = activeTab === "all" ? undefined : activeTab;
-  const { entities, loading, error, createEntity, archiveEntity } = useEntities(
+  const { entities, state, error, createEntity, archiveEntity } = useEntities(
     typeFilter ? { type: typeFilter } : undefined,
   );
 
@@ -55,15 +56,15 @@ export function EntityBrowser() {
         <Button onClick={() => setFormOpen(true)}>Add Entity</Button>
       </div>
 
-      {loading && (
+      {(state === State.INITIAL || state === State.PENDING) && (
         <div className="text-muted-foreground py-8 text-center">Loading entities...</div>
       )}
 
-      {error && (
+      {state === State.ERROR && (
         <div className="text-destructive py-8 text-center">{error}</div>
       )}
 
-      {!loading && !error && entities.length === 0 && (
+      {state === State.NONE && (
         <div className="text-muted-foreground py-8 text-center">
           No entities found. Create one to get started!
         </div>

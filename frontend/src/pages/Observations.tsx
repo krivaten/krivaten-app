@@ -43,7 +43,7 @@ export default function Observations() {
     [category, fromDate, toDate, page],
   );
 
-  const { observations, count, loading, createObservation } = useObservations(filters);
+  const { observations, count, state, createObservation } = useObservations(filters);
 
   return (
     <div className="space-y-6">
@@ -114,7 +114,7 @@ export default function Observations() {
 
       <Timeline
         observations={observations}
-        loading={loading}
+        state={state}
         hasMore={observations.length < count}
         onLoadMore={() => setPage((p) => p + 1)}
       />

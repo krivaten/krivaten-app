@@ -21,7 +21,7 @@ export default function Dashboard() {
   const { household } = useHouseholdContext();
   const { entities } = useEntities();
   const [page] = useState(1);
-  const { observations, count, loading, createObservation } = useObservations({
+  const { observations, count, state: obsState, createObservation } = useObservations({
     page,
     per_page: 10,
   });
@@ -67,7 +67,7 @@ export default function Dashboard() {
           <h2 className="text-lg font-semibold mb-4">Recent Observations</h2>
           <Timeline
             observations={observations}
-            loading={loading}
+            state={obsState}
             hasMore={observations.length < count}
             onLoadMore={() => {}}
           />

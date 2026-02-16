@@ -33,13 +33,19 @@ krivaten-app/
 │   └── vite.config.ts
 ├── workers/                 # Hono API → Cloudflare Workers
 │   ├── src/
-│   │   ├── routes/          # health, auth, profiles
-│   │   ├── middleware/       # JWT auth middleware (jose)
-│   │   ├── lib/             # Supabase client factory
-│   │   └── types/           # Env bindings, User, Variables
+│   │   ├── routes/          # health, auth, profiles, households, entities,
+│   │   │                    # observations, relationships, export
+│   │   ├── middleware/      # JWT auth middleware (jose)
+│   │   ├── lib/             # Supabase client factory, household helpers
+│   │   ├── types/           # Env bindings, User, Variables, domain types
+│   │   └── test/            # Integration tests (Vitest)
+│   │       ├── helpers/     # Auth, request, cleanup, fixture helpers
+│   │       └── integration/ # Test suites for all routes + RLS
+│   ├── vitest.config.ts
 │   └── wrangler.toml
 ├── supabase/
-│   └── migrations/          # profiles table, avatars storage bucket
+│   └── migrations/          # Schema: profiles, households, entities,
+│                            # observations, relationships, avatars bucket
 ├── .env.example
 ├── package.json             # Root workspace scripts
 └── pnpm-workspace.yaml
@@ -128,18 +134,36 @@ This starts both servers concurrently:
 | `pnpm frontend`       | Start frontend dev server only        |
 | `pnpm workers`        | Start workers dev server only         |
 | `pnpm build`          | Build frontend for production         |
+| `pnpm test:workers`   | Run backend integration tests         |
 | `pnpm deploy:workers` | Deploy workers to Cloudflare          |
 | `pnpm typecheck`      | Type-check workers                    |
 
 ## API Endpoints
 
-| Method | Endpoint           | Auth     | Description        |
-| ------ | ------------------ | -------- | ------------------ |
-| GET    | `/`                | No       | Welcome message    |
-| GET    | `/api/health`      | No       | Health check       |
-| GET    | `/api/auth/me`     | Required | Current user info  |
-| GET    | `/api/profiles/me` | Required | Get own profile    |
-| PUT    | `/api/profiles/me` | Required | Update own profile |
+| Method | Endpoint                  | Auth     | Description                          |
+| ------ | ------------------------- | -------- | ------------------------------------ |
+| GET    | `/`                       | No       | Welcome message                      |
+| GET    | `/api/health`             | No       | Health check                         |
+| GET    | `/api/auth/me`            | Required | Current user info                    |
+| GET    | `/api/profiles/me`        | Required | Get own profile (auto-creates)       |
+| PUT    | `/api/profiles/me`        | Required | Update own profile                   |
+| POST   | `/api/households`         | Required | Create household                     |
+| GET    | `/api/households/mine`    | Required | Get own household                    |
+| PUT    | `/api/households/mine`    | Required | Update household name                |
+| GET    | `/api/entities`           | Required | List entities (filter: type, archived)|
+| GET    | `/api/entities/:id`       | Required | Get single entity                    |
+| POST   | `/api/entities`           | Required | Create entity                        |
+| PUT    | `/api/entities/:id`       | Required | Update entity                        |
+| DELETE | `/api/entities/:id`       | Required | Soft-archive entity                  |
+| GET    | `/api/observations`       | Required | List observations (paginated, filterable)|
+| GET    | `/api/observations/:id`   | Required | Get single observation               |
+| POST   | `/api/observations`       | Required | Create observation                   |
+| POST   | `/api/observations/bulk`  | Required | Bulk create observations             |
+| DELETE | `/api/observations/:id`   | Required | Delete own observation               |
+| GET    | `/api/relationships`      | Required | List relationships                   |
+| POST   | `/api/relationships`      | Required | Create relationship                  |
+| DELETE | `/api/relationships/:id`  | Required | Delete relationship                  |
+| GET    | `/api/export`             | Required | Export data (JSON or Markdown)       |
 
 Authenticated endpoints require an `Authorization: Bearer <token>` header with a valid Supabase JWT.
 
@@ -189,9 +213,41 @@ Update Supabase redirect URLs to include the production callback:
 
 - `https://app.krivaten.com/auth/callback`
 
+## Testing
+
+Integration tests run against a local Supabase instance using real auth JWTs and real RLS policies.
+
+### Prerequisites
+
+- [Docker](https://www.docker.com/) (required by Supabase CLI)
+- [Supabase CLI](https://supabase.com/docs/guides/cli) v2.75.0+
+
+### Running Tests
+
+```bash
+supabase start        # Start local Supabase (Docker required)
+pnpm test:workers     # Run all 40 integration tests
+```
+
+### Test Coverage
+
+| Suite | Tests | What it covers |
+|-------|-------|----------------|
+| Health | 2 | Smoke test — validates test infrastructure |
+| Households | 6 | CRUD, duplicate rejection, auth enforcement |
+| Entities | 9 | CRUD, type constraints, archive/filter, hierarchy |
+| Observations | 9 | CRUD, pagination, bulk create, category/tag/date filters |
+| Relationships | 4 | CRUD with entity joins, bidirectional filtering |
+| Export | 3 | JSON and Markdown export with filters |
+| RLS Isolation | 7 | Cross-household data isolation, RLS regression tests |
+
 ## Database
 
 Migrations live in `supabase/migrations/`. Key tables:
 
-- **`profiles`** — User profile data (display_name, avatar_url, bio). Auto-created on signup via trigger. RLS ensures users can only read/update their own profile.
+- **`profiles`** — User profile data (display_name, avatar_url, bio, household_id, role). Auto-created via `GET /api/profiles/me`. RLS ensures users can only read/update their own profile.
+- **`households`** — Household groupings. Users belong to one household. RLS scoped to household membership.
+- **`entities`** — Tracked things (person, location, plant, project, equipment, supply, process, animal). Supports hierarchy via `parent_id` and soft-archiving.
+- **`observations`** — Timestamped observations linked to entities. Supports categories, subcategories, tags, and arbitrary JSON data.
+- **`relationships`** — Typed connections between entities with optional temporal validity.
 - **`avatars` bucket** — Supabase Storage bucket for avatar images. Public read, per-user write.

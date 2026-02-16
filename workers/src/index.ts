@@ -29,7 +29,7 @@ app.use(
 );
 
 app.get("/", (c) => {
-  return c.json({ message: "Welcome to Sondering API" });
+  return c.json({ message: "Welcome to Krivaten API" });
 });
 
 app.route("/", health);

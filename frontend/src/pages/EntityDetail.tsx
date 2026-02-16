@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router";
 import { api } from "@/lib/api";
+import { State, getSingleState } from "@/lib/state";
 import { useObservations } from "@/hooks/useObservations";
 import { ObservationForm } from "@/components/observations/ObservationForm";
 import { Timeline } from "@/components/observations/Timeline";
@@ -23,23 +24,23 @@ const TYPE_COLORS: Record<string, string> = {
 export default function EntityDetail() {
   const { id } = useParams<{ id: string }>();
   const [entity, setEntity] = useState<Entity | null>(null);
-  const [entityLoading, setEntityLoading] = useState(true);
+  const [entityState, setEntityState] = useState<State>(State.INITIAL);
   const [formOpen, setFormOpen] = useState(false);
   const [page, setPage] = useState(1);
 
-  const { observations, count, loading: obsLoading, createObservation, refetch } =
+  const { observations, count, state: obsState, createObservation, refetch } =
     useObservations(id ? { entity_id: id, page, per_page: 20 } : undefined);
 
   const fetchEntity = useCallback(async () => {
     if (!id) return;
     try {
-      setEntityLoading(true);
+      setEntityState(State.PENDING);
       const data = await api.get<Entity>(`/api/entities/${id}`);
       setEntity(data);
+      setEntityState(getSingleState(data));
     } catch {
       setEntity(null);
-    } finally {
-      setEntityLoading(false);
+      setEntityState(State.NONE);
     }
   }, [id]);
 
@@ -47,7 +48,7 @@ export default function EntityDetail() {
     fetchEntity();
   }, [fetchEntity]);
 
-  if (entityLoading) {
+  if (entityState === State.INITIAL || entityState === State.PENDING) {
     return <div className="text-muted-foreground py-8 text-center">Loading...</div>;
   }
 
@@ -102,7 +103,7 @@ export default function EntityDetail() {
         </h2>
         <Timeline
           observations={observations}
-          loading={obsLoading}
+          state={obsState}
           hasMore={observations.length < count}
           onLoadMore={() => setPage((p) => p + 1)}
         />

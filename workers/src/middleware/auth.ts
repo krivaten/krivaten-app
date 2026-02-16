@@ -1,7 +1,6 @@
 import { Context, MiddlewareHandler } from "hono";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
-
 let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 
 function getJWKS(supabaseUrl: string) {

@@ -1,17 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
+import { State, getCollectionState } from "@/lib/state";
 import type { Entity, EntityCreate } from "@/types/entity";
 
 export function useEntities(filters?: { type?: string; parent_id?: string }) {
   const { session, loading: authLoading } = useAuth();
   const [entities, setEntities] = useState<Entity[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<State>(State.INITIAL);
   const [error, setError] = useState<string | null>(null);
 
   const fetchEntities = useCallback(async () => {
     try {
-      setLoading(true);
+      setState(State.PENDING);
       setError(null);
       const params = new URLSearchParams();
       if (filters?.type) params.set("type", filters.type);
@@ -19,16 +20,20 @@ export function useEntities(filters?: { type?: string; parent_id?: string }) {
       const qs = params.toString();
       const data = await api.get<Entity[]>(`/api/entities${qs ? `?${qs}` : ""}`);
       setEntities(data);
+      setState(getCollectionState(data));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load entities");
-    } finally {
-      setLoading(false);
+      setState(State.ERROR);
     }
   }, [filters?.type, filters?.parent_id]);
 
   const createEntity = useCallback(async (entity: EntityCreate) => {
     const data = await api.post<Entity>("/api/entities", entity);
-    setEntities((prev) => [...prev, data]);
+    setEntities((prev) => {
+      const next = [...prev, data];
+      setState(getCollectionState(next));
+      return next;
+    });
     return data;
   }, []);
 
@@ -40,17 +45,21 @@ export function useEntities(filters?: { type?: string; parent_id?: string }) {
 
   const archiveEntity = useCallback(async (id: string) => {
     await api.delete(`/api/entities/${id}`);
-    setEntities((prev) => prev.filter((e) => e.id !== id));
+    setEntities((prev) => {
+      const next = prev.filter((e) => e.id !== id);
+      setState(getCollectionState(next));
+      return next;
+    });
   }, []);
 
   useEffect(() => {
     if (authLoading) return;
     if (!session) {
-      setLoading(false);
+      setState(State.NONE);
       return;
     }
     fetchEntities();
   }, [authLoading, session, fetchEntities]);
 
-  return { entities, loading, error, createEntity, updateEntity, archiveEntity, refetch: fetchEntities };
+  return { entities, state, error, createEntity, updateEntity, archiveEntity, refetch: fetchEntities };
 }

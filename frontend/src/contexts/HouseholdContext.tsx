@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
 import { useHousehold } from "@/hooks/useHousehold";
+import { State } from "@/lib/state";
 import { HouseholdOnboarding } from "@/components/HouseholdOnboarding";
 import type { Household } from "@/types/household";
 
@@ -11,9 +12,9 @@ interface HouseholdContextValue {
 const HouseholdContext = createContext<HouseholdContextValue | null>(null);
 
 export function HouseholdProvider({ children }: { children: React.ReactNode }) {
-  const { household, loading, createHousehold, refetch } = useHousehold();
+  const { household, state, error, createHousehold, refetch } = useHousehold();
 
-  if (loading) {
+  if (state === State.INITIAL || state === State.PENDING) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-muted-foreground">Loading...</div>
@@ -21,7 +22,15 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!household) {
+  if (state === State.ERROR) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-destructive">{error}</div>
+      </div>
+    );
+  }
+
+  if (state === State.NONE || !household) {
     return <HouseholdOnboarding onCreated={refetch} createHousehold={createHousehold} />;
   }
 
