@@ -10,7 +10,8 @@
     "deploy:workers": "pnpm --filter ./workers run deploy",
     "typecheck": "pnpm --filter ./workers typecheck",
     "format": "prettier --write \"frontend/src/**/*.{ts,tsx,css}\" \"workers/src/**/*.ts\"",
-    "format:check": "prettier --check \"frontend/src/**/*.{ts,tsx,css}\" \"workers/src/**/*.ts\""
+    "format:check": "prettier --check \"frontend/src/**/*.{ts,tsx,css}\" \"workers/src/**/*.ts\"",
+    "test:workers": "pnpm --filter krivaten-workers test"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
