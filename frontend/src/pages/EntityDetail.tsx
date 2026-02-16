@@ -7,7 +7,11 @@ import { Timeline } from "@/components/observations/Timeline";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Entity } from "@/types/entity";
+import type { Entity, EntityType } from "@/types/entity";
+import {
+  ENTITY_PROPERTY_FIELDS,
+  formatPropertyValue,
+} from "@/config/entityPropertyFields";
 
 const TYPE_COLORS: Record<string, string> = {
   person: "bg-blue-100 text-blue-800",
@@ -83,18 +87,31 @@ export default function EntityDetail() {
         <Button onClick={() => setFormOpen(true)}>Log Observation</Button>
       </div>
 
-      {properties && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Properties</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <pre className="text-sm bg-muted p-3 rounded overflow-x-auto">
-              {JSON.stringify(properties, null, 2)}
-            </pre>
-          </CardContent>
-        </Card>
-      )}
+      {properties && (() => {
+        const fieldDefs = ENTITY_PROPERTY_FIELDS[entity.type as EntityType] ?? [];
+        const fieldsWithValues = fieldDefs.filter(
+          (f) => properties[f.key] !== undefined && properties[f.key] !== null && properties[f.key] !== "",
+        );
+        return fieldsWithValues.length > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Properties</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                {fieldsWithValues.map((field) => (
+                  <div key={field.key}>
+                    <dt className="text-muted-foreground">{field.label}</dt>
+                    <dd className="font-medium">
+                      {formatPropertyValue(field, properties[field.key])}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </CardContent>
+          </Card>
+        ) : null;
+      })()}
 
       <div>
         <h2 className="text-lg font-semibold mb-4">
