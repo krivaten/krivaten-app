@@ -29,25 +29,38 @@ households.post("/api/households", async (c) => {
     return c.json({ detail: "Household name is required" }, 400);
   }
 
-  // Create the household
-  const { data: household, error: hError } = await supabase
+  // Generate ID up front so we can insert without needing .select()
+  // (.select() after INSERT fails because the SELECT RLS policy checks
+  // get_my_household_id(), which is still NULL until the profile is updated)
+  const householdId = crypto.randomUUID();
+
+  const { error: hError } = await supabase
     .from("households")
-    .insert({ name: body.name.trim() })
-    .select()
-    .single();
+    .insert({ id: householdId, name: body.name.trim() });
 
   if (hError) {
     return c.json({ detail: `Error creating household: ${hError.message}` }, 500);
   }
 
-  // Assign user to household as admin
+  // Assign user to household as admin — this makes the SELECT policy work
   const { error: pError } = await supabase
     .from("profiles")
-    .update({ household_id: household.id, role: "admin" })
+    .update({ household_id: householdId, role: "admin" })
     .eq("id", user.id);
 
   if (pError) {
     return c.json({ detail: `Error assigning household: ${pError.message}` }, 500);
+  }
+
+  // Now fetch the household (SELECT policy passes because profile is updated)
+  const { data: household, error: fetchError } = await supabase
+    .from("households")
+    .select("*")
+    .eq("id", householdId)
+    .single();
+
+  if (fetchError) {
+    return c.json({ detail: `Error fetching household: ${fetchError.message}` }, 500);
   }
 
   return c.json(household, 201);
