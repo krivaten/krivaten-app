@@ -6,7 +6,7 @@ describe("Health Routes", () => {
     const res = await appGet("/");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.message).toBe("Welcome to Sondering API");
+    expect(body.message).toBe("Welcome to Krivaten API");
   });
 
   it("GET /api/health returns 200", async () => {
