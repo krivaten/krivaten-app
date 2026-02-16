@@ -26,7 +26,7 @@ describe("Entities Routes", () => {
         {
           type: "person",
           name: "Alice",
-          properties: { age: 30 },
+          properties: { allergies: "pollen" },
         },
         headers,
       );
@@ -34,7 +34,7 @@ describe("Entities Routes", () => {
       const body = await res.json();
       expect(body.type).toBe("person");
       expect(body.name).toBe("Alice");
-      expect(body.properties).toEqual({ age: 30 });
+      expect(body.properties).toEqual({ allergies: "pollen" });
       expect(body.archived).toBe(false);
     });
 
@@ -55,6 +55,22 @@ describe("Entities Routes", () => {
       expect(res.status).toBe(201);
       const body = await res.json();
       expect(body.parent_id).toBe(parent.id);
+    });
+
+    it("rejects unknown property keys for entity type", async () => {
+      const res = await appPost(
+        "/api/entities",
+        {
+          type: "person",
+          name: "Test",
+          properties: { invalid_key: "value" },
+        },
+        headers,
+      );
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.detail).toContain("Unknown property keys");
+      expect(body.detail).toContain("invalid_key");
     });
 
     it("rejects entity creation without household membership", async () => {
@@ -132,16 +148,16 @@ describe("Entities Routes", () => {
       const entity = await createEntityForUser(user, {
         type: "person",
         name: "Alice",
-        properties: { age: 30 },
+        properties: { allergies: "pollen" },
       });
       const res = await appPut(
         `/api/entities/${entity.id}`,
-        { properties: { age: 31, height: 170 } },
+        { properties: { allergies: "pollen, dust", medical_notes: "carries epipen" } },
         headers,
       );
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.properties).toEqual({ age: 31, height: 170 });
+      expect(body.properties).toEqual({ allergies: "pollen, dust", medical_notes: "carries epipen" });
     });
   });
 
