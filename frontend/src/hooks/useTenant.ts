@@ -36,6 +36,12 @@ export function useTenant() {
     return data;
   }, []);
 
+  const updateTenant = useCallback(async (updates: { name?: string; settings?: Record<string, unknown> }) => {
+    const data = await api.put<Tenant>("/api/v1/tenants/mine", updates);
+    setTenant(data);
+    return data;
+  }, []);
+
   useEffect(() => {
     if (authLoading) return;
     if (!session) {
@@ -45,5 +51,5 @@ export function useTenant() {
     fetchTenant();
   }, [authLoading, session, fetchTenant]);
 
-  return { tenant, state, error, createTenant, refetch: fetchTenant };
+  return { tenant, state, error, createTenant, updateTenant, refetch: fetchTenant };
 }

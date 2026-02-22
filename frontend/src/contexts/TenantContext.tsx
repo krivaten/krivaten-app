@@ -6,13 +6,14 @@ import type { Tenant } from "@/types/tenant";
 
 interface TenantContextValue {
   tenant: Tenant;
+  updateTenant: (updates: { name?: string; settings?: Record<string, unknown> }) => Promise<Tenant>;
   refetch: () => Promise<void>;
 }
 
 const TenantContext = createContext<TenantContextValue | null>(null);
 
 export function TenantProvider({ children }: { children: React.ReactNode }) {
-  const { tenant, state, error, createTenant, refetch } = useTenant();
+  const { tenant, state, error, createTenant, updateTenant, refetch } = useTenant();
 
   if (state === State.INITIAL || state === State.PENDING) {
     return (
@@ -35,7 +36,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <TenantContext.Provider value={{ tenant, refetch }}>
+    <TenantContext.Provider value={{ tenant, updateTenant, refetch }}>
       {children}
     </TenantContext.Provider>
   );

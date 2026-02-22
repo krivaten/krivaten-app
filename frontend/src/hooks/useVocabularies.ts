@@ -40,6 +40,12 @@ export function useVocabularies(filters?: VocabularyFilters) {
     return data;
   }, []);
 
+  const updateVocabulary = useCallback(async (id: string, updates: { name?: string; description?: string; path?: string }) => {
+    const data = await api.put<Vocabulary>(`/api/v1/vocabularies/${id}`, updates);
+    setVocabularies((prev) => prev.map((v) => (v.id === id ? data : v)));
+    return data;
+  }, []);
+
   const deleteVocabulary = useCallback(async (id: string) => {
     await api.delete(`/api/v1/vocabularies/${id}`);
     setVocabularies((prev) => {
@@ -58,5 +64,5 @@ export function useVocabularies(filters?: VocabularyFilters) {
     fetchVocabularies();
   }, [authLoading, session, fetchVocabularies]);
 
-  return { vocabularies, state, error, createVocabulary, deleteVocabulary, refetch: fetchVocabularies };
+  return { vocabularies, state, error, createVocabulary, updateVocabulary, deleteVocabulary, refetch: fetchVocabularies };
 }
