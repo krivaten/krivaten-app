@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { toast } from "sonner";
 import { useEntities } from "@/hooks/useEntities";
 import { useVocabularies } from "@/hooks/useVocabularies";
@@ -25,6 +26,12 @@ export function QuickLog({ onSubmit }: Props) {
   const [variableId, setVariableId] = useState("");
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const entityOptions = entities.map((e) => ({
+    value: e.id,
+    label: e.name,
+    description: e.entity_type?.name,
+  }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -62,18 +69,14 @@ export function QuickLog({ onSubmit }: Props) {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <Select value={subjectId} onValueChange={setSubjectId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Subject..." />
-              </SelectTrigger>
-              <SelectContent>
-                {entities.map((e) => (
-                  <SelectItem key={e.id} value={e.id}>
-                    {e.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              options={entityOptions}
+              value={subjectId}
+              onValueChange={setSubjectId}
+              placeholder="Subject..."
+              searchPlaceholder="Search entities..."
+              emptyMessage="No entities found."
+            />
             <Select value={variableId} onValueChange={setVariableId}>
               <SelectTrigger>
                 <SelectValue placeholder="Variable..." />

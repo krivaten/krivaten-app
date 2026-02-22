@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { toast } from "sonner";
 import { useEntities } from "@/hooks/useEntities";
 import { useVocabularies } from "@/hooks/useVocabularies";
@@ -41,6 +42,12 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultSubjectId
     new Date().toISOString().slice(0, 16),
   );
   const [loading, setLoading] = useState(false);
+
+  const entityOptions = entities.map((e) => ({
+    value: e.id,
+    label: e.name,
+    description: e.entity_type?.name,
+  }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -89,18 +96,15 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultSubjectId
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label>Subject</Label>
-            <Select value={subjectId} onValueChange={setSubjectId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select entity..." />
-              </SelectTrigger>
-              <SelectContent>
-                {entities.map((e) => (
-                  <SelectItem key={e.id} value={e.id}>
-                    {e.name} ({e.entity_type?.name || "Unknown"})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              options={entityOptions}
+              value={subjectId}
+              onValueChange={setSubjectId}
+              placeholder="Select entity..."
+              searchPlaceholder="Search entities..."
+              emptyMessage="No entities found."
+              disabled={!!defaultSubjectId}
+            />
           </div>
           <div className="space-y-2">
             <Label>Variable</Label>
