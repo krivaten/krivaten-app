@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router";
+import { XIcon } from "lucide-react";
 import { useEntities } from "@/hooks/useEntities";
 import { useVocabularies } from "@/hooks/useVocabularies";
 import { State } from "@/lib/state";
@@ -7,6 +8,7 @@ import { EntityForm } from "./EntityForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const COLOR_PALETTE = [
@@ -25,13 +27,21 @@ const COLOR_PALETTE = [
 export function EntityBrowser() {
   const [activeTab, setActiveTab] = useState("all");
   const [formOpen, setFormOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const { vocabularies: entityTypes } = useVocabularies({ type: "entity_type" });
 
   const typeFilter = activeTab === "all" ? undefined : activeTab;
-  const { entities, state, error, createEntity, archiveEntity } = useEntities(
-    typeFilter ? { type: typeFilter } : undefined,
-  );
+  const { entities, state, error, createEntity, archiveEntity } = useEntities({
+    type: typeFilter,
+    search: debouncedSearch || undefined,
+  });
 
   const tabs = [
     { value: "all", label: "All" },
@@ -45,7 +55,7 @@ export function EntityBrowser() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             {tabs.map((tab) => (
@@ -55,7 +65,25 @@ export function EntityBrowser() {
             ))}
           </TabsList>
         </Tabs>
-        <Button onClick={() => setFormOpen(true)}>Add Entity</Button>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Input
+              placeholder="Search entities..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-48"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <XIcon className="size-4" />
+              </button>
+            )}
+          </div>
+          <Button onClick={() => setFormOpen(true)}>Add Entity</Button>
+        </div>
       </div>
 
       {(state === State.INITIAL || state === State.PENDING) && (
