@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -11,20 +11,8 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useEntities } from "@/hooks/useEntities";
+import { useVocabularies } from "@/hooks/useVocabularies";
 import type { Observation, ObservationCreate } from "@/types/observation";
-
-const CATEGORIES = [
-  "feeding",
-  "sleep",
-  "behavior",
-  "health",
-  "note",
-  "soil",
-  "planting",
-  "harvest",
-  "inventory",
-  "maintenance",
-];
 
 interface Props {
   onSubmit: (observation: ObservationCreate) => Promise<Observation>;
@@ -32,24 +20,33 @@ interface Props {
 
 export function QuickLog({ onSubmit }: Props) {
   const { entities } = useEntities();
-  const [entityId, setEntityId] = useState("");
-  const [category, setCategory] = useState("");
-  const [notes, setNotes] = useState("");
+  const { vocabularies: variables } = useVocabularies({ type: "variable" });
+  const [subjectId, setSubjectId] = useState("");
+  const [variableId, setVariableId] = useState("");
+  const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!entityId || !category) return;
+    if (!subjectId || !variableId) return;
 
     setLoading(true);
     try {
-      await onSubmit({
-        entity_id: entityId,
-        category,
-        notes: notes || undefined,
-      });
+      const observation: ObservationCreate = {
+        subject_id: subjectId,
+        variable_id: variableId,
+      };
+
+      const numValue = Number(value);
+      if (value && !isNaN(numValue)) {
+        observation.value_numeric = numValue;
+      } else if (value) {
+        observation.value_text = value;
+      }
+
+      await onSubmit(observation);
       toast.success("Observation logged!");
-      setNotes("");
+      setValue("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to log observation");
     } finally {
@@ -65,9 +62,9 @@ export function QuickLog({ onSubmit }: Props) {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <Select value={entityId} onValueChange={setEntityId}>
+            <Select value={subjectId} onValueChange={setSubjectId}>
               <SelectTrigger>
-                <SelectValue placeholder="Entity..." />
+                <SelectValue placeholder="Subject..." />
               </SelectTrigger>
               <SelectContent>
                 {entities.map((e) => (
@@ -77,29 +74,28 @@ export function QuickLog({ onSubmit }: Props) {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={category} onValueChange={setCategory}>
+            <Select value={variableId} onValueChange={setVariableId}>
               <SelectTrigger>
-                <SelectValue placeholder="Category..." />
+                <SelectValue placeholder="Variable..." />
               </SelectTrigger>
               <SelectContent>
-                {CATEGORIES.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                {variables.map((v) => (
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          <Textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Notes (optional)..."
-            rows={2}
+          <Input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="Value (number or text)..."
           />
           <Button
             type="submit"
             size="sm"
-            disabled={loading || !entityId || !category}
+            disabled={loading || !subjectId || !variableId}
             className="w-full"
           >
             {loading ? "Logging..." : "Log"}

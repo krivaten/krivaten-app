@@ -8,7 +8,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -18,76 +17,64 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useEntities } from "@/hooks/useEntities";
+import { useVocabularies } from "@/hooks/useVocabularies";
 import type { Observation, ObservationCreate } from "@/types/observation";
-
-const CATEGORIES = [
-  "feeding",
-  "sleep",
-  "behavior",
-  "health",
-  "note",
-  "soil",
-  "planting",
-  "harvest",
-  "inventory",
-  "maintenance",
-];
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (observation: ObservationCreate) => Promise<Observation>;
-  defaultEntityId?: string;
+  defaultSubjectId?: string;
 }
 
-export function ObservationForm({ open, onOpenChange, onSubmit, defaultEntityId }: Props) {
+export function ObservationForm({ open, onOpenChange, onSubmit, defaultSubjectId }: Props) {
   const { entities } = useEntities();
-  const [entityId, setEntityId] = useState(defaultEntityId ?? "");
-  const [category, setCategory] = useState("");
-  const [subcategory, setSubcategory] = useState("");
+  const { vocabularies: variables } = useVocabularies({ type: "variable" });
+  const { vocabularies: units } = useVocabularies({ type: "unit" });
+  const [subjectId, setSubjectId] = useState(defaultSubjectId ?? "");
+  const [variableId, setVariableId] = useState("");
+  const [valueType, setValueType] = useState<"numeric" | "text">("numeric");
+  const [valueNumeric, setValueNumeric] = useState("");
+  const [valueText, setValueText] = useState("");
+  const [unitId, setUnitId] = useState("");
   const [observedAt, setObservedAt] = useState(
     new Date().toISOString().slice(0, 16),
   );
-  const [notes, setNotes] = useState("");
-  const [tags, setTags] = useState("");
-  const [data, setData] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!entityId || !category) return;
+    if (!subjectId || !variableId) return;
 
     setLoading(true);
     try {
-      let parsedData: Record<string, unknown> = {};
-      if (data.trim()) {
-        parsedData = JSON.parse(data);
+      const observation: ObservationCreate = {
+        subject_id: subjectId,
+        variable_id: variableId,
+        observed_at: new Date(observedAt).toISOString(),
+      };
+
+      if (valueType === "numeric" && valueNumeric) {
+        observation.value_numeric = Number(valueNumeric);
+      } else if (valueType === "text" && valueText) {
+        observation.value_text = valueText;
       }
 
-      await onSubmit({
-        entity_id: entityId,
-        category,
-        subcategory: subcategory || undefined,
-        observed_at: new Date(observedAt).toISOString(),
-        notes: notes || undefined,
-        tags: tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : undefined,
-        data: Object.keys(parsedData).length > 0 ? parsedData : undefined,
-      });
+      if (unitId) {
+        observation.unit_id = unitId;
+      }
+
+      await onSubmit(observation);
       toast.success("Observation logged!");
-      setCategory("");
-      setSubcategory("");
+      setVariableId("");
+      setValueNumeric("");
+      setValueText("");
+      setUnitId("");
       setObservedAt(new Date().toISOString().slice(0, 16));
-      setNotes("");
-      setTags("");
-      setData("");
-      if (!defaultEntityId) setEntityId("");
+      if (!defaultSubjectId) setSubjectId("");
       onOpenChange(false);
     } catch (err) {
-      if (err instanceof SyntaxError) {
-        toast.error("Invalid JSON in data field");
-      } else {
-        toast.error(err instanceof Error ? err.message : "Failed to log observation");
-      }
+      toast.error(err instanceof Error ? err.message : "Failed to log observation");
     } finally {
       setLoading(false);
     }
@@ -101,43 +88,84 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultEntityId 
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label>Entity</Label>
-            <Select value={entityId} onValueChange={setEntityId}>
+            <Label>Subject</Label>
+            <Select value={subjectId} onValueChange={setSubjectId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select entity..." />
               </SelectTrigger>
               <SelectContent>
                 {entities.map((e) => (
                   <SelectItem key={e.id} value={e.id}>
-                    {e.name} ({e.type})
+                    {e.name} ({e.entity_type?.name || "Unknown"})
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Category</Label>
-            <Select value={category} onValueChange={setCategory}>
+            <Label>Variable</Label>
+            <Select value={variableId} onValueChange={setVariableId}>
               <SelectTrigger>
-                <SelectValue placeholder="Select category..." />
+                <SelectValue placeholder="Select variable..." />
               </SelectTrigger>
               <SelectContent>
-                {CATEGORIES.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                {variables.map((v) => (
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="obs-subcategory">Subcategory (optional)</Label>
-            <Input
-              id="obs-subcategory"
-              value={subcategory}
-              onChange={(e) => setSubcategory(e.target.value)}
-              placeholder="e.g. breakfast, weekly check"
-            />
+            <Label>Value Type</Label>
+            <Select value={valueType} onValueChange={(v) => setValueType(v as "numeric" | "text")}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="numeric">Number</SelectItem>
+                <SelectItem value="text">Text</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {valueType === "numeric" ? (
+            <div className="space-y-2">
+              <Label htmlFor="obs-value-numeric">Value</Label>
+              <Input
+                id="obs-value-numeric"
+                type="number"
+                step="any"
+                value={valueNumeric}
+                onChange={(e) => setValueNumeric(e.target.value)}
+                placeholder="e.g. 22.5"
+              />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="obs-value-text">Value</Label>
+              <Input
+                id="obs-value-text"
+                value={valueText}
+                onChange={(e) => setValueText(e.target.value)}
+                placeholder="e.g. Healthy, Good condition"
+              />
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label>Unit (optional)</Label>
+            <Select value={unitId} onValueChange={setUnitId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select unit..." />
+              </SelectTrigger>
+              <SelectContent>
+                {units.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {u.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="obs-observed-at">Observed At</Label>
@@ -148,36 +176,7 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultEntityId 
               onChange={(e) => setObservedAt(e.target.value)}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="obs-notes">Notes</Label>
-            <Textarea
-              id="obs-notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="What did you observe?"
-              rows={3}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="obs-tags">Tags (comma-separated)</Label>
-            <Input
-              id="obs-tags"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="e.g. urgent, follow-up, seasonal"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="obs-data">Data (JSON, optional)</Label>
-            <Textarea
-              id="obs-data"
-              value={data}
-              onChange={(e) => setData(e.target.value)}
-              placeholder='{"temperature": 72, "humidity": "high"}'
-              rows={2}
-            />
-          </div>
-          <Button type="submit" disabled={loading || !entityId || !category} className="w-full">
+          <Button type="submit" disabled={loading || !subjectId || !variableId} className="w-full">
             {loading ? "Logging..." : "Log Observation"}
           </Button>
         </form>
