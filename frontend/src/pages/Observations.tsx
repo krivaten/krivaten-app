@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useObservations } from "@/hooks/useObservations";
 import { useVocabularies } from "@/hooks/useVocabularies";
 import { ObservationForm } from "@/components/observations/ObservationForm";
+import { BatchObservationForm } from "@/components/observations/BatchObservationForm";
 import { Timeline } from "@/components/observations/Timeline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import {
 export default function Observations() {
   const { user } = useAuth();
   const [formOpen, setFormOpen] = useState(false);
+  const [batchOpen, setBatchOpen] = useState(false);
   const [variable, setVariable] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -35,13 +37,16 @@ export default function Observations() {
     [variable, fromDate, toDate, page],
   );
 
-  const { observations, count, state, createObservation, deleteObservation } = useObservations(filters);
+  const { observations, count, state, createObservation, deleteObservation, refetch } = useObservations(filters);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Observations</h1>
-        <Button onClick={() => setFormOpen(true)}>Log Observation</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setBatchOpen(true)}>Batch Log</Button>
+          <Button onClick={() => setFormOpen(true)}>Log Observation</Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -117,6 +122,12 @@ export default function Observations() {
         open={formOpen}
         onOpenChange={setFormOpen}
         onSubmit={createObservation}
+      />
+
+      <BatchObservationForm
+        open={batchOpen}
+        onOpenChange={setBatchOpen}
+        onSuccess={refetch}
       />
     </div>
   );
