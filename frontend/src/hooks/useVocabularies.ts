@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
-import { State, getCollectionState } from "@/lib/state";
+import { State } from "@/lib/state";
+import { getQueryCollectionState } from "@/lib/queryState";
+import { queryKeys } from "@/lib/queryKeys";
 import type { Vocabulary, VocabularyType } from "@/types/vocabulary";
 
 interface VocabularyFilters {
@@ -10,59 +12,72 @@ interface VocabularyFilters {
 
 export function useVocabularies(filters?: VocabularyFilters) {
   const { session, loading: authLoading } = useAuth();
-  const [vocabularies, setVocabularies] = useState<Vocabulary[]>([]);
-  const [state, setState] = useState<State>(State.INITIAL);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchVocabularies = useCallback(async () => {
-    try {
-      setState(State.PENDING);
-      setError(null);
+  const query = useQuery({
+    queryKey: queryKeys.vocabularies.list(filters),
+    queryFn: () => {
       const params = new URLSearchParams();
       if (filters?.type) params.set("type", filters.type);
       const qs = params.toString();
-      const data = await api.get<Vocabulary[]>(`/api/v1/vocabularies${qs ? `?${qs}` : ""}`);
-      setVocabularies(data);
-      setState(getCollectionState(data));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load vocabularies");
-      setState(State.ERROR);
-    }
-  }, [filters?.type]);
+      return api.get<Vocabulary[]>(
+        `/api/v1/vocabularies${qs ? `?${qs}` : ""}`,
+      );
+    },
+    enabled: !authLoading && !!session,
+  });
 
-  const createVocabulary = useCallback(async (vocab: Omit<Vocabulary, "id" | "tenant_id" | "is_system" | "created_at" | "updated_at">) => {
-    const data = await api.post<Vocabulary>("/api/v1/vocabularies", vocab);
-    setVocabularies((prev) => {
-      const next = [...prev, data];
-      setState(getCollectionState(next));
-      return next;
-    });
-    return data;
-  }, []);
+  const state =
+    !authLoading && !session ? State.NONE : getQueryCollectionState(query);
 
-  const updateVocabulary = useCallback(async (id: string, updates: { name?: string; description?: string; path?: string }) => {
-    const data = await api.put<Vocabulary>(`/api/v1/vocabularies/${id}`, updates);
-    setVocabularies((prev) => prev.map((v) => (v.id === id ? data : v)));
-    return data;
-  }, []);
+  const createVocabularyMutation = useMutation({
+    mutationFn: (
+      vocab: Omit<
+        Vocabulary,
+        "id" | "tenant_id" | "is_system" | "created_at" | "updated_at"
+      >,
+    ) => api.post<Vocabulary>("/api/v1/vocabularies", vocab),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.vocabularies.all(),
+      });
+    },
+  });
 
-  const deleteVocabulary = useCallback(async (id: string) => {
-    await api.delete(`/api/v1/vocabularies/${id}`);
-    setVocabularies((prev) => {
-      const next = prev.filter((v) => v.id !== id);
-      setState(getCollectionState(next));
-      return next;
-    });
-  }, []);
+  const updateVocabularyMutation = useMutation({
+    mutationFn: ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: { name?: string; description?: string; path?: string };
+    }) => api.put<Vocabulary>(`/api/v1/vocabularies/${id}`, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.vocabularies.all(),
+      });
+    },
+  });
 
-  useEffect(() => {
-    if (authLoading) return;
-    if (!session) {
-      setState(State.NONE);
-      return;
-    }
-    fetchVocabularies();
-  }, [authLoading, session, fetchVocabularies]);
+  const deleteVocabularyMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/api/v1/vocabularies/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.vocabularies.all(),
+      });
+    },
+  });
 
-  return { vocabularies, state, error, createVocabulary, updateVocabulary, deleteVocabulary, refetch: fetchVocabularies };
+  return {
+    vocabularies: query.data ?? [],
+    state,
+    error: query.error?.message ?? null,
+    createVocabulary: createVocabularyMutation.mutateAsync,
+    updateVocabulary: async (
+      id: string,
+      updates: { name?: string; description?: string; path?: string },
+    ) => updateVocabularyMutation.mutateAsync({ id, updates }),
+    deleteVocabulary: deleteVocabularyMutation.mutateAsync,
+    refetch: query.refetch,
+  };
 }
