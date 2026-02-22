@@ -7,8 +7,8 @@ const profiles = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 profiles.use("*", authMiddleware);
 
-// GET /api/profiles/me
-profiles.get("/api/profiles/me", async (c) => {
+// GET /api/v1/profiles/me
+profiles.get("/api/v1/profiles/me", async (c) => {
   const user = getUser(c);
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
 
@@ -44,8 +44,8 @@ profiles.get("/api/profiles/me", async (c) => {
   return c.json(data);
 });
 
-// PUT /api/profiles/me
-profiles.put("/api/profiles/me", async (c) => {
+// PUT /api/v1/profiles/me
+profiles.put("/api/v1/profiles/me", async (c) => {
   const user = getUser(c);
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
 

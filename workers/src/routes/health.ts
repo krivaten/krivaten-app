@@ -1,9 +1,8 @@
 import { Hono } from "hono";
 
-
 const health = new Hono<{ Bindings: Env }>();
 
-health.get("/api/health", (c) => {
+health.get("/api/v1/health", (c) => {
   return c.json({ status: "healthy" });
 });
 

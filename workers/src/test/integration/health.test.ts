@@ -9,8 +9,8 @@ describe("Health Routes", () => {
     expect(body.message).toBe("Welcome to Krivaten API");
   });
 
-  it("GET /api/health returns 200", async () => {
-    const res = await appGet("/api/health");
+  it("GET /api/v1/health returns 200", async () => {
+    const res = await appGet("/api/v1/health");
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.status).toBe("healthy");

@@ -53,7 +53,7 @@ export const adminClient: SupabaseClient = createClient(
 beforeAll(async () => {
   // Verify local Supabase is reachable
   try {
-    const { error } = await adminClient.from("households").select("id").limit(1);
+    const { error } = await adminClient.from("tenants").select("id").limit(1);
     if (error) {
       throw new Error(`Supabase query failed: ${error.message}`);
     }
