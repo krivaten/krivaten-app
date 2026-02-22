@@ -1,56 +1,63 @@
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 import { State, getSingleState } from "@/lib/state";
+import { queryKeys } from "@/lib/queryKeys";
 import type { Tenant } from "@/types/tenant";
 
 export function useTenant() {
   const { session, loading: authLoading } = useAuth();
-  const [tenant, setTenant] = useState<Tenant | null>(null);
-  const [state, setState] = useState<State>(State.INITIAL);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchTenant = useCallback(async () => {
-    try {
-      setState(State.PENDING);
-      setError(null);
+  const query = useQuery({
+    queryKey: queryKeys.tenant.mine(),
+    queryFn: async (): Promise<Tenant | null> => {
       await api.get("/api/v1/profiles/me");
-      const data = await api.get<Tenant>("/api/v1/tenants/mine");
-      setTenant(data);
-      setState(getSingleState(data));
-    } catch (err) {
-      // 404 means no tenant yet — not an error
-      if (err instanceof Error && err.message.includes("404")) {
-        setTenant(null);
-        setState(State.NONE);
-      } else {
-        setError(err instanceof Error ? err.message : "Failed to load workspace");
-        setState(State.ERROR);
+      try {
+        return await api.get<Tenant>("/api/v1/tenants/mine");
+      } catch (err) {
+        if (err instanceof Error && err.message.includes("404")) {
+          return null;
+        }
+        throw err;
       }
-    }
-  }, []);
+    },
+    enabled: !authLoading && !!session,
+  });
 
-  const createTenant = useCallback(async (name: string) => {
-    const data = await api.post<Tenant>("/api/v1/tenants", { name });
-    setTenant(data);
-    setState(getSingleState(data));
-    return data;
-  }, []);
+  const state =
+    !authLoading && !session
+      ? State.NONE
+      : query.status === "pending"
+        ? State.PENDING
+        : query.status === "error"
+          ? State.ERROR
+          : getSingleState(query.data);
 
-  const updateTenant = useCallback(async (updates: { name?: string; settings?: Record<string, unknown> }) => {
-    const data = await api.put<Tenant>("/api/v1/tenants/mine", updates);
-    setTenant(data);
-    return data;
-  }, []);
+  const createTenantMutation = useMutation({
+    mutationFn: (name: string) =>
+      api.post<Tenant>("/api/v1/tenants", { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tenant.mine() });
+    },
+  });
 
-  useEffect(() => {
-    if (authLoading) return;
-    if (!session) {
-      setState(State.NONE);
-      return;
-    }
-    fetchTenant();
-  }, [authLoading, session, fetchTenant]);
+  const updateTenantMutation = useMutation({
+    mutationFn: (updates: {
+      name?: string;
+      settings?: Record<string, unknown>;
+    }) => api.put<Tenant>("/api/v1/tenants/mine", updates),
+    onSuccess: (data) => {
+      queryClient.setQueryData(queryKeys.tenant.mine(), data);
+    },
+  });
 
-  return { tenant, state, error, createTenant, updateTenant, refetch: fetchTenant };
+  return {
+    tenant: query.data ?? null,
+    state,
+    error: query.error?.message ?? null,
+    createTenant: createTenantMutation.mutateAsync,
+    updateTenant: updateTenantMutation.mutateAsync,
+    refetch: query.refetch,
+  };
 }
