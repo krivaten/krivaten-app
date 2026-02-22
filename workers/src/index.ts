@@ -7,6 +7,7 @@ import profiles from "./routes/profiles";
 import tenants from "./routes/tenants";
 import vocabularies from "./routes/vocabularies";
 import entities from "./routes/entities";
+import edges from "./routes/edges";
 import observations from "./routes/observations";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -37,6 +38,7 @@ app.route("/", profiles);
 app.route("/", tenants);
 app.route("/", vocabularies);
 app.route("/", entities);
+app.route("/", edges);
 app.route("/", observations);
 
 export default app;
