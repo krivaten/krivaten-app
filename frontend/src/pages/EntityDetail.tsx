@@ -6,11 +6,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useObservations } from "@/hooks/useObservations";
 import { useEdges } from "@/hooks/useEdges";
 import { EntityForm } from "@/components/entities/EntityForm";
+import { EdgeForm } from "@/components/edges/EdgeForm";
 import { ObservationForm } from "@/components/observations/ObservationForm";
 import { Timeline } from "@/components/observations/Timeline";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
 import type { Entity, EntityCreate } from "@/types/entity";
 
 export default function EntityDetail() {
@@ -20,12 +22,13 @@ export default function EntityDetail() {
   const [entityState, setEntityState] = useState<State>(State.INITIAL);
   const [formOpen, setFormOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [edgeFormOpen, setEdgeFormOpen] = useState(false);
   const [page, setPage] = useState(1);
 
   const { observations, count, state: obsState, createObservation, deleteObservation, refetch } =
     useObservations(id ? { subject_id: id, page, per_page: 20 } : undefined);
 
-  const { edges } = useEdges(id);
+  const { edges, createEdge, deleteEdge } = useEdges(id);
 
   const fetchEntity = useCallback(async () => {
     if (!id) return;
@@ -62,6 +65,16 @@ export default function EntityDetail() {
   const attributes = entity.attributes && Object.keys(entity.attributes).length > 0
     ? entity.attributes
     : null;
+
+  async function handleDeleteEdge(edgeId: string) {
+    if (!confirm("Remove this connection?")) return;
+    try {
+      await deleteEdge(edgeId);
+      toast.success("Connection removed");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove connection");
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -104,37 +117,57 @@ export default function EntityDetail() {
         </Card>
       )}
 
-      {edges.length > 0 && (
-        <Card>
-          <CardHeader>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
             <CardTitle className="text-base">
               Connections {edges.length > 0 && <span className="text-muted-foreground font-normal">({edges.length})</span>}
             </CardTitle>
-          </CardHeader>
-          <CardContent>
+            <Button variant="outline" size="sm" onClick={() => setEdgeFormOpen(true)}>
+              Add Connection
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {edges.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No connections yet.</p>
+          ) : (
             <div className="space-y-2">
               {edges.map((edge) => {
                 const isSource = edge.source_id === id;
                 const related = isSource ? edge.target : edge.source;
                 const direction = isSource ? "\u2192" : "\u2190";
                 return (
-                  <div key={edge.id} className="flex items-center gap-2 text-sm">
-                    <Badge variant="outline" className="text-xs">{edge.edge_type}</Badge>
-                    <span>{direction}</span>
-                    {related ? (
-                      <Link to={`/entities/${related.id}`} className="hover:underline">
-                        {related.name}
-                      </Link>
-                    ) : (
-                      <span className="text-muted-foreground">Unknown</span>
-                    )}
+                  <div key={edge.id} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">{edge.edge_type}</Badge>
+                      <span>{direction}</span>
+                      {related ? (
+                        <Link to={`/entities/${related.id}`} className="hover:underline">
+                          {related.name}
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground">Unknown</span>
+                      )}
+                      {edge.label && (
+                        <span className="text-xs text-muted-foreground">({edge.label})</span>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      className="text-xs text-muted-foreground hover:text-destructive"
+                      onClick={() => handleDeleteEdge(edge.id)}
+                    >
+                      Remove
+                    </Button>
                   </div>
                 );
               })}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       <div>
         <h2 className="text-lg font-semibold mb-4">
@@ -159,6 +192,14 @@ export default function EntityDetail() {
           await fetchEntity();
           return data;
         }}
+      />
+
+      <EdgeForm
+        open={edgeFormOpen}
+        onOpenChange={setEdgeFormOpen}
+        onSubmit={createEdge}
+        sourceEntityId={id!}
+        sourceEntityName={entity.name}
       />
 
       <ObservationForm
