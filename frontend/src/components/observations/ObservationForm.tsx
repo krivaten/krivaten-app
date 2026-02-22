@@ -8,6 +8,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -21,6 +23,8 @@ import { useEntities } from "@/hooks/useEntities";
 import { useVocabularies } from "@/hooks/useVocabularies";
 import type { Observation, ObservationCreate } from "@/types/observation";
 
+type ValueType = "numeric" | "text" | "boolean" | "json";
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -32,12 +36,18 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultSubjectId
   const { entities } = useEntities();
   const { vocabularies: variables } = useVocabularies({ type: "variable" });
   const { vocabularies: units } = useVocabularies({ type: "unit" });
+  const { vocabularies: qualityFlags } = useVocabularies({ type: "quality_flag" });
+  const { vocabularies: methods } = useVocabularies({ type: "method" });
   const [subjectId, setSubjectId] = useState(defaultSubjectId ?? "");
   const [variableId, setVariableId] = useState("");
-  const [valueType, setValueType] = useState<"numeric" | "text">("numeric");
+  const [valueType, setValueType] = useState<ValueType>("numeric");
   const [valueNumeric, setValueNumeric] = useState("");
   const [valueText, setValueText] = useState("");
+  const [valueBoolean, setValueBoolean] = useState(false);
+  const [valueJson, setValueJson] = useState("");
   const [unitId, setUnitId] = useState("");
+  const [qualityFlag, setQualityFlag] = useState("");
+  const [methodId, setMethodId] = useState("");
   const [observedAt, setObservedAt] = useState(
     new Date().toISOString().slice(0, 16),
   );
@@ -65,18 +75,32 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultSubjectId
         observation.value_numeric = Number(valueNumeric);
       } else if (valueType === "text" && valueText) {
         observation.value_text = valueText;
+      } else if (valueType === "boolean") {
+        observation.value_boolean = valueBoolean;
+      } else if (valueType === "json" && valueJson) {
+        try {
+          observation.value_json = JSON.parse(valueJson);
+        } catch {
+          toast.error("Invalid JSON value");
+          setLoading(false);
+          return;
+        }
       }
 
-      if (unitId) {
-        observation.unit_id = unitId;
-      }
+      if (unitId) observation.unit_id = unitId;
+      if (qualityFlag) observation.quality_flag = qualityFlag;
+      if (methodId) observation.method_id = methodId;
 
       await onSubmit(observation);
       toast.success("Observation logged!");
       setVariableId("");
       setValueNumeric("");
       setValueText("");
+      setValueBoolean(false);
+      setValueJson("");
       setUnitId("");
+      setQualityFlag("");
+      setMethodId("");
       setObservedAt(new Date().toISOString().slice(0, 16));
       if (!defaultSubjectId) setSubjectId("");
       onOpenChange(false);
@@ -123,17 +147,19 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultSubjectId
           </div>
           <div className="space-y-2">
             <Label>Value Type</Label>
-            <Select value={valueType} onValueChange={(v) => setValueType(v as "numeric" | "text")}>
+            <Select value={valueType} onValueChange={(v) => setValueType(v as ValueType)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="numeric">Number</SelectItem>
                 <SelectItem value="text">Text</SelectItem>
+                <SelectItem value="boolean">Boolean</SelectItem>
+                <SelectItem value="json">JSON</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          {valueType === "numeric" ? (
+          {valueType === "numeric" && (
             <div className="space-y-2">
               <Label htmlFor="obs-value-numeric">Value</Label>
               <Input
@@ -145,7 +171,8 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultSubjectId
                 placeholder="e.g. 22.5"
               />
             </div>
-          ) : (
+          )}
+          {valueType === "text" && (
             <div className="space-y-2">
               <Label htmlFor="obs-value-text">Value</Label>
               <Input
@@ -153,6 +180,28 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultSubjectId
                 value={valueText}
                 onChange={(e) => setValueText(e.target.value)}
                 placeholder="e.g. Healthy, Good condition"
+              />
+            </div>
+          )}
+          {valueType === "boolean" && (
+            <div className="flex items-center gap-2 py-2">
+              <Checkbox
+                id="obs-value-boolean"
+                checked={valueBoolean}
+                onCheckedChange={(checked) => setValueBoolean(checked === true)}
+              />
+              <Label htmlFor="obs-value-boolean">Value is true</Label>
+            </div>
+          )}
+          {valueType === "json" && (
+            <div className="space-y-2">
+              <Label htmlFor="obs-value-json">JSON Value</Label>
+              <Textarea
+                id="obs-value-json"
+                value={valueJson}
+                onChange={(e) => setValueJson(e.target.value)}
+                placeholder='{"key": "value"}'
+                rows={4}
               />
             </div>
           )}
@@ -171,6 +220,40 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultSubjectId
               </SelectContent>
             </Select>
           </div>
+          {qualityFlags.length > 0 && (
+            <div className="space-y-2">
+              <Label>Quality Flag (optional)</Label>
+              <Select value={qualityFlag} onValueChange={setQualityFlag}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select quality flag..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {qualityFlags.map((qf) => (
+                    <SelectItem key={qf.id} value={qf.code}>
+                      {qf.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {methods.length > 0 && (
+            <div className="space-y-2">
+              <Label>Method (optional)</Label>
+              <Select value={methodId} onValueChange={setMethodId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select method..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {methods.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="obs-observed-at">Observed At</Label>
             <Input
