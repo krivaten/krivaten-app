@@ -1,122 +1,133 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { appGet, appPost } from "../helpers/request";
 import { authHeaders } from "../helpers/auth";
 import { cleanupAllData } from "../helpers/cleanup";
 import {
-  setupUserWithHousehold,
+  setupUserWithTenant,
   createEntityForUser,
+  createEdgeForUser,
   createObservationForUser,
+  getSystemVocabId,
+  type TestUser,
 } from "../helpers/fixtures";
 
 describe("RLS Isolation and Regression", () => {
-  let userA: { id: string; email: string; accessToken: string };
-  let userB: { id: string; email: string; accessToken: string };
+  let userA: TestUser;
+  let userB: TestUser;
   let headersA: Record<string, string>;
   let headersB: Record<string, string>;
-  let entityA: { id: string };
+  let entityA: Entity;
 
   beforeEach(async () => {
     await cleanupAllData();
 
-    // Set up two users in separate households
-    const setupA = await setupUserWithHousehold("rlsA", "Household A");
+    // Set up two users in separate tenants
+    const setupA = await setupUserWithTenant("rlsA", "Workspace A");
     userA = setupA.user;
     headersA = authHeaders(userA.accessToken);
 
-    const setupB = await setupUserWithHousehold("rlsB", "Household B");
+    const setupB = await setupUserWithTenant("rlsB", "Workspace B");
     userB = setupB.user;
     headersB = authHeaders(userB.accessToken);
 
     // Create data for User A
     entityA = await createEntityForUser(userA, {
-      type: "person",
+      entity_type: "person",
       name: "Alice Private",
     });
+
+    const varId = await getSystemVocabId(userA, "variable", "note");
     await createObservationForUser(userA, {
-      entity_id: entityA.id,
-      category: "mood",
-      notes: "Private observation",
+      subject_id: entityA.id,
+      variable_id: varId,
+      value_text: "Private observation",
     });
   });
 
-  afterEach(async () => {
-    await cleanupAllData();
-  });
-
-  describe("Cross-household isolation", () => {
+  describe("Cross-tenant isolation", () => {
     it("User B cannot see User A's entities", async () => {
-      const res = await appGet("/api/entities", headersB);
+      const res = await appGet("/api/v1/entities", headersB);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body).toHaveLength(0);
+    });
+
+    it("User B cannot see User A's edges", async () => {
+      const entityA2 = await createEntityForUser(userA, {
+        entity_type: "person",
+        name: "Alice Friend",
+      });
+      await createEdgeForUser(userA, {
+        source_id: entityA.id,
+        target_id: entityA2.id,
+        edge_type: "manages",
+      });
+
+      const res = await appGet("/api/v1/edges?entity_id=" + entityA.id, headersB);
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body).toHaveLength(0);
     });
 
     it("User B cannot see User A's observations", async () => {
-      const res = await appGet("/api/observations", headersB);
+      const res = await appGet("/api/v1/observations", headersB);
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.data).toHaveLength(0);
     });
 
-    it("User B cannot see User A's relationships", async () => {
-      const entityA2 = await createEntityForUser(userA, {
-        type: "person",
-        name: "Alice Friend",
-      });
+    it("User B cannot see User A's tenant-specific vocabularies", async () => {
+      // Create tenant-specific vocab for User A
       await appPost(
-        "/api/relationships",
+        "/api/v1/vocabularies",
         {
-          from_entity_id: entityA.id,
-          to_entity_id: entityA2.id,
-          relationship_type: "friend_of",
+          vocabulary_type: "variable",
+          code: "secret_var",
+          name: "Secret Variable",
         },
         headersA,
       );
 
-      const res = await appGet("/api/relationships", headersB);
-      expect(res.status).toBe(200);
+      // User B should only see system vocabs, not A's tenant vocab
+      const res = await appGet("/api/v1/vocabularies?type=variable", headersB);
       const body = await res.json();
-      expect(body).toHaveLength(0);
+      const secretVocab = body.find((v: { code: string }) => v.code === "secret_var");
+      expect(secretVocab).toBeUndefined();
     });
 
-    it("User B cannot see User A's household", async () => {
-      // User B's /mine should return their own household, not A's
-      const res = await appGet("/api/households/mine", headersB);
+    it("User B CAN see system vocabularies", async () => {
+      const res = await appGet("/api/v1/vocabularies?type=entity_type", headersB);
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.name).toBe("Household B");
+      expect(body.length).toBe(8);
+      expect(body.every((v: { is_system: boolean }) => v.is_system === true)).toBe(true);
     });
 
-    it("Export only returns own household's data", async () => {
-      const res = await appGet("/api/export", headersB);
+    it("User B's tenant is isolated from User A's", async () => {
+      const res = await appGet("/api/v1/tenants/mine", headersB);
       expect(res.status).toBe(200);
-      const body = JSON.parse(await res.text());
-      expect(body).toHaveLength(0);
+      const body = await res.json();
+      expect(body.name).toBe("Workspace B");
     });
   });
 
   describe("RLS regression tests", () => {
-    it("GET /api/profiles/me does not cause infinite recursion", async () => {
-      // Regression: profiles SELECT policy had a subquery back into profiles,
-      // causing infinite recursion via get_my_household_id()
-      const res = await appGet("/api/profiles/me", headersA);
+    it("GET /api/v1/profiles/me does not cause infinite recursion", async () => {
+      const res = await appGet("/api/v1/profiles/me", headersA);
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.id).toBe(userA.id);
     });
 
-    it("entity creation works immediately after household creation", async () => {
-      // Regression: INSERT+SELECT chicken-and-egg — .select() after INSERT
-      // failed because SELECT RLS checked get_my_household_id() which was NULL
+    it("entity creation works immediately after tenant creation", async () => {
       await cleanupAllData();
-      const setup = await setupUserWithHousehold("regression");
+      const setup = await setupUserWithTenant("regression");
       const user = setup.user;
       const headers = authHeaders(user.accessToken);
 
-      // This should work immediately — no delay needed
       const res = await appPost(
-        "/api/entities",
-        { type: "person", name: "Immediate Entity" },
+        "/api/v1/entities",
+        { entity_type: "person", name: "Immediate Entity" },
         headers,
       );
       expect(res.status).toBe(201);
