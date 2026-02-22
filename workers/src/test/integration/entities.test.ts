@@ -1,179 +1,185 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { appGet, appPost, appPut, appDelete } from "../helpers/request";
 import { authHeaders, createTestUser } from "../helpers/auth";
 import { cleanupAllData } from "../helpers/cleanup";
-import { createHouseholdForUser, createEntityForUser } from "../helpers/fixtures";
+import {
+  setupUserWithTenant,
+  getSystemVocabId,
+  createEntityForUser,
+  type TestUser,
+} from "../helpers/fixtures";
 
 describe("Entities Routes", () => {
-  let user: { id: string; email: string; accessToken: string };
+  let user: TestUser;
   let headers: Record<string, string>;
 
   beforeEach(async () => {
     await cleanupAllData();
-    user = await createTestUser("entity");
+    const setup = await setupUserWithTenant("entity");
+    user = setup.user;
     headers = authHeaders(user.accessToken);
-    await createHouseholdForUser(user, "Entity Test Home");
   });
 
-  afterEach(async () => {
-    await cleanupAllData();
-  });
-
-  describe("POST /api/entities", () => {
-    it("creates entity with type, name, properties", async () => {
+  describe("POST /api/v1/entities", () => {
+    it("creates entity with entity_type_id (UUID)", async () => {
+      const typeId = await getSystemVocabId(user, "entity_type", "person");
       const res = await appPost(
-        "/api/entities",
-        {
-          type: "person",
-          name: "Alice",
-          properties: { allergies: "pollen" },
-        },
+        "/api/v1/entities",
+        { entity_type_id: typeId, name: "Alice" },
         headers,
       );
       expect(res.status).toBe(201);
       const body = await res.json();
-      expect(body.type).toBe("person");
       expect(body.name).toBe("Alice");
-      expect(body.properties).toEqual({ allergies: "pollen" });
-      expect(body.archived).toBe(false);
+      expect(body.entity_type_id).toBe(typeId);
+      expect(body.is_active).toBe(true);
     });
 
-    it("creates entity with parent_id (hierarchical)", async () => {
-      const parent = await createEntityForUser(user, {
-        type: "location",
-        name: "House",
-      });
+    it("creates entity with entity_type code (string resolved to UUID)", async () => {
       const res = await appPost(
-        "/api/entities",
-        {
-          type: "location",
-          name: "Kitchen",
-          parent_id: parent.id,
-        },
+        "/api/v1/entities",
+        { entity_type: "animal", name: "Rex" },
         headers,
       );
       expect(res.status).toBe(201);
       const body = await res.json();
-      expect(body.parent_id).toBe(parent.id);
+      expect(body.name).toBe("Rex");
+      expect(body.entity_type_id).toBeDefined();
     });
 
-    it("rejects unknown property keys for entity type", async () => {
+    it("rejects missing name", async () => {
       const res = await appPost(
-        "/api/entities",
-        {
-          type: "person",
-          name: "Test",
-          properties: { invalid_key: "value" },
-        },
+        "/api/v1/entities",
+        { entity_type: "person" },
+        headers,
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("rejects invalid entity_type code", async () => {
+      const res = await appPost(
+        "/api/v1/entities",
+        { entity_type: "nonexistent_type", name: "Test" },
         headers,
       );
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.detail).toContain("Unknown property keys");
-      expect(body.detail).toContain("invalid_key");
+      expect(body.detail).toContain("entity type");
     });
 
-    it("rejects entity creation without household membership", async () => {
-      const noHouseholdUser = await createTestUser("nohousehold");
-      const noHeaders = authHeaders(noHouseholdUser.accessToken);
-      // Ensure profile exists
-      await appGet("/api/profiles/me", noHeaders);
+    it("rejects entity creation without tenant", async () => {
+      const noTenantUser = await createTestUser("notenant");
+      const noHeaders = authHeaders(noTenantUser.accessToken);
+      await appGet("/api/v1/profiles/me", noHeaders);
 
       const res = await appPost(
-        "/api/entities",
-        { type: "person", name: "Bob" },
+        "/api/v1/entities",
+        { entity_type: "person", name: "Bob" },
         noHeaders,
       );
       expect(res.status).toBe(400);
     });
   });
 
-  describe("GET /api/entities", () => {
-    it("lists all entities", async () => {
-      await createEntityForUser(user, { type: "person", name: "Alice" });
-      await createEntityForUser(user, { type: "animal", name: "Rex" });
+  describe("GET /api/v1/entities", () => {
+    it("lists entities", async () => {
+      await createEntityForUser(user, { entity_type: "person", name: "Alice" });
+      await createEntityForUser(user, { entity_type: "animal", name: "Rex" });
 
-      const res = await appGet("/api/entities", headers);
+      const res = await appGet("/api/v1/entities", headers);
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body).toHaveLength(2);
     });
 
-    it("filters by type", async () => {
-      await createEntityForUser(user, { type: "person", name: "Alice" });
-      await createEntityForUser(user, { type: "animal", name: "Rex" });
+    it("filters by entity type code", async () => {
+      await createEntityForUser(user, { entity_type: "person", name: "Alice" });
+      await createEntityForUser(user, { entity_type: "animal", name: "Rex" });
 
-      const res = await appGet("/api/entities?type=person", headers);
+      const res = await appGet("/api/v1/entities?type=person", headers);
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body).toHaveLength(1);
       expect(body[0].name).toBe("Alice");
     });
 
-    it("excludes archived by default, includes with ?archived=true", async () => {
+    it("excludes inactive by default", async () => {
       const entity = await createEntityForUser(user, {
-        type: "person",
+        entity_type: "person",
         name: "Archived Person",
       });
-      await appDelete(`/api/entities/${entity.id}`, headers);
+      await appDelete(`/api/v1/entities/${entity.id}`, headers);
 
-      // Default: excludes archived
-      const res1 = await appGet("/api/entities", headers);
-      const body1 = await res1.json();
-      expect(body1).toHaveLength(0);
+      const res = await appGet("/api/v1/entities", headers);
+      const body = await res.json();
+      expect(body).toHaveLength(0);
+    });
 
-      // With archived=true: includes archived
-      const res2 = await appGet("/api/entities?archived=true", headers);
-      const body2 = await res2.json();
-      expect(body2).toHaveLength(1);
-      expect(body2[0].archived).toBe(true);
+    it("includes inactive with ?active=false", async () => {
+      const entity = await createEntityForUser(user, {
+        entity_type: "person",
+        name: "Archived Person",
+      });
+      await appDelete(`/api/v1/entities/${entity.id}`, headers);
+
+      const res = await appGet("/api/v1/entities?active=false", headers);
+      const body = await res.json();
+      expect(body).toHaveLength(1);
+      expect(body[0].is_active).toBe(false);
     });
   });
 
-  describe("GET /api/entities/:id", () => {
-    it("returns single entity", async () => {
+  describe("GET /api/v1/entities/:id", () => {
+    it("returns entity with joined entity_type vocabulary", async () => {
       const entity = await createEntityForUser(user, {
-        type: "person",
+        entity_type: "person",
         name: "Alice",
       });
-      const res = await appGet(`/api/entities/${entity.id}`, headers);
+      const res = await appGet(`/api/v1/entities/${entity.id}`, headers);
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.name).toBe("Alice");
+      expect(body.entity_type).toBeDefined();
+      expect(body.entity_type.code).toBe("person");
     });
   });
 
-  describe("PUT /api/entities/:id", () => {
-    it("updates properties", async () => {
+  describe("PUT /api/v1/entities/:id", () => {
+    it("updates name, description, attributes", async () => {
       const entity = await createEntityForUser(user, {
-        type: "person",
+        entity_type: "person",
         name: "Alice",
-        properties: { allergies: "pollen" },
       });
       const res = await appPut(
-        `/api/entities/${entity.id}`,
-        { properties: { allergies: "pollen, dust", medical_notes: "carries epipen" } },
+        `/api/v1/entities/${entity.id}`,
+        {
+          name: "Alice Updated",
+          description: "A test person",
+          attributes: { allergies: "pollen" },
+        },
         headers,
       );
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.properties).toEqual({ allergies: "pollen, dust", medical_notes: "carries epipen" });
+      expect(body.name).toBe("Alice Updated");
+      expect(body.description).toBe("A test person");
+      expect(body.attributes).toEqual({ allergies: "pollen" });
     });
   });
 
-  describe("DELETE /api/entities/:id", () => {
-    it("soft-archives entity (204)", async () => {
+  describe("DELETE /api/v1/entities/:id", () => {
+    it("soft-deletes (sets is_active=false), returns 204", async () => {
       const entity = await createEntityForUser(user, {
-        type: "person",
+        entity_type: "person",
         name: "Alice",
       });
-      const res = await appDelete(`/api/entities/${entity.id}`, headers);
+      const res = await appDelete(`/api/v1/entities/${entity.id}`, headers);
       expect(res.status).toBe(204);
 
-      // Verify archived
-      const getRes = await appGet(`/api/entities/${entity.id}`, headers);
+      // Verify soft-deleted
+      const getRes = await appGet(`/api/v1/entities/${entity.id}`, headers);
       const body = await getRes.json();
-      expect(body.archived).toBe(true);
+      expect(body.is_active).toBe(false);
     });
   });
 });
