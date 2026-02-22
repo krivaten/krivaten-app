@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,9 +24,10 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   onSubmit: (entity: EntityCreate) => Promise<Entity>;
   initialTypeCode?: string;
+  entity?: Entity;
 }
 
-export function EntityForm({ open, onOpenChange, onSubmit, initialTypeCode }: Props) {
+export function EntityForm({ open, onOpenChange, onSubmit, initialTypeCode, entity }: Props) {
   const { vocabularies: entityTypes } = useVocabularies({ type: "entity_type" });
   const [name, setName] = useState("");
   const [typeId, setTypeId] = useState("");
@@ -34,6 +35,32 @@ export function EntityForm({ open, onOpenChange, onSubmit, initialTypeCode }: Pr
   const [taxonomyPath, setTaxonomyPath] = useState("");
   const [attrEntries, setAttrEntries] = useState<{ key: string; value: string }[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const isEdit = !!entity;
+
+  // Pre-populate form when editing
+  useEffect(() => {
+    if (open && entity) {
+      setName(entity.name);
+      setTypeId(entity.entity_type_id || "");
+      setDescription(entity.description || "");
+      setTaxonomyPath(entity.taxonomy_path || "");
+      const attrs = entity.attributes;
+      if (attrs && Object.keys(attrs).length > 0) {
+        setAttrEntries(
+          Object.entries(attrs).map(([key, value]) => ({ key, value: String(value) })),
+        );
+      } else {
+        setAttrEntries([]);
+      }
+    } else if (open && !entity) {
+      setName("");
+      setTypeId("");
+      setDescription("");
+      setTaxonomyPath("");
+      setAttrEntries([]);
+    }
+  }, [open, entity]);
 
   // Resolve initialTypeCode to an id when entity types load
   const resolvedInitialId = initialTypeCode
@@ -76,15 +103,17 @@ export function EntityForm({ open, onOpenChange, onSubmit, initialTypeCode }: Pr
         taxonomy_path: taxonomyPath.trim() || undefined,
         attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
       });
-      toast.success("Entity created!");
-      setName("");
-      setTypeId("");
-      setDescription("");
-      setTaxonomyPath("");
-      setAttrEntries([]);
+      toast.success(isEdit ? "Entity updated!" : "Entity created!");
+      if (!isEdit) {
+        setName("");
+        setTypeId("");
+        setDescription("");
+        setTaxonomyPath("");
+        setAttrEntries([]);
+      }
       onOpenChange(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create entity");
+      toast.error(err instanceof Error ? err.message : `Failed to ${isEdit ? "update" : "create"} entity`);
     } finally {
       setLoading(false);
     }
@@ -94,7 +123,7 @@ export function EntityForm({ open, onOpenChange, onSubmit, initialTypeCode }: Pr
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Entity</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit Entity" : "Add Entity"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -112,6 +141,7 @@ export function EntityForm({ open, onOpenChange, onSubmit, initialTypeCode }: Pr
             <Select
               value={selectedTypeId}
               onValueChange={(v) => setTypeId(v)}
+              disabled={isEdit}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select type..." />
@@ -176,7 +206,7 @@ export function EntityForm({ open, onOpenChange, onSubmit, initialTypeCode }: Pr
             Add Attribute
           </Button>
           <Button type="submit" disabled={loading || !name.trim() || !selectedTypeId} className="w-full">
-            {loading ? "Creating..." : "Create Entity"}
+            {loading ? (isEdit ? "Saving..." : "Creating...") : (isEdit ? "Save Changes" : "Create Entity")}
           </Button>
         </form>
       </DialogContent>

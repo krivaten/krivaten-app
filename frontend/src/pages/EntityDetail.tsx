@@ -4,18 +4,20 @@ import { api } from "@/lib/api";
 import { State, getSingleState } from "@/lib/state";
 import { useObservations } from "@/hooks/useObservations";
 import { useEdges } from "@/hooks/useEdges";
+import { EntityForm } from "@/components/entities/EntityForm";
 import { ObservationForm } from "@/components/observations/ObservationForm";
 import { Timeline } from "@/components/observations/Timeline";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Entity } from "@/types/entity";
+import type { Entity, EntityCreate } from "@/types/entity";
 
 export default function EntityDetail() {
   const { id } = useParams<{ id: string }>();
   const [entity, setEntity] = useState<Entity | null>(null);
   const [entityState, setEntityState] = useState<State>(State.INITIAL);
   const [formOpen, setFormOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [page, setPage] = useState(1);
 
   const { observations, count, state: obsState, createObservation, refetch } =
@@ -76,7 +78,10 @@ export default function EntityDetail() {
             Created {new Date(entity.created_at).toLocaleDateString()}
           </p>
         </div>
-        <Button onClick={() => setFormOpen(true)}>Log Observation</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setEditOpen(true)}>Edit</Button>
+          <Button onClick={() => setFormOpen(true)}>Log Observation</Button>
+        </div>
       </div>
 
       {attributes && (
@@ -140,6 +145,17 @@ export default function EntityDetail() {
           onLoadMore={() => setPage((p) => p + 1)}
         />
       </div>
+
+      <EntityForm
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        entity={entity}
+        onSubmit={async (updates: EntityCreate) => {
+          const data = await api.put<Entity>(`/api/v1/entities/${id}`, updates);
+          await fetchEntity();
+          return data;
+        }}
+      />
 
       <ObservationForm
         open={formOpen}
