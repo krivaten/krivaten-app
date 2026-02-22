@@ -1,8 +1,14 @@
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
-import { State, getCollectionState } from "@/lib/state";
-import type { Observation, ObservationCreate, PaginatedResponse } from "@/types/observation";
+import { State } from "@/lib/state";
+import { getQueryPaginatedState } from "@/lib/queryState";
+import { queryKeys } from "@/lib/queryKeys";
+import type {
+  Observation,
+  ObservationCreate,
+  PaginatedResponse,
+} from "@/types/observation";
 
 interface ObservationFilters {
   subject_id?: string;
@@ -15,15 +21,11 @@ interface ObservationFilters {
 
 export function useObservations(filters?: ObservationFilters) {
   const { session, loading: authLoading } = useAuth();
-  const [observations, setObservations] = useState<Observation[]>([]);
-  const [count, setCount] = useState(0);
-  const [state, setState] = useState<State>(State.INITIAL);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchObservations = useCallback(async () => {
-    try {
-      setState(State.PENDING);
-      setError(null);
+  const query = useQuery({
+    queryKey: queryKeys.observations.list(filters),
+    queryFn: () => {
       const params = new URLSearchParams();
       if (filters?.subject_id) params.set("subject_id", filters.subject_id);
       if (filters?.variable) params.set("variable", filters.variable);
@@ -32,47 +34,42 @@ export function useObservations(filters?: ObservationFilters) {
       if (filters?.page) params.set("page", String(filters.page));
       if (filters?.per_page) params.set("per_page", String(filters.per_page));
       const qs = params.toString();
-      const result = await api.get<PaginatedResponse<Observation>>(
+      return api.get<PaginatedResponse<Observation>>(
         `/api/v1/observations${qs ? `?${qs}` : ""}`,
       );
-      setObservations(result.data);
-      setCount(result.count);
-      setState(getCollectionState(result.data));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load observations");
-      setState(State.ERROR);
-    }
-  }, [filters?.subject_id, filters?.variable, filters?.from, filters?.to, filters?.page, filters?.per_page]);
+    },
+    enabled: !authLoading && !!session,
+  });
 
-  const createObservation = useCallback(async (observation: ObservationCreate) => {
-    const data = await api.post<Observation>("/api/v1/observations", observation);
-    setObservations((prev) => {
-      const next = [data, ...prev];
-      setState(getCollectionState(next));
-      return next;
-    });
-    setCount((prev) => prev + 1);
-    return data;
-  }, []);
+  const state =
+    !authLoading && !session ? State.NONE : getQueryPaginatedState(query);
 
-  const deleteObservation = useCallback(async (id: string) => {
-    await api.delete(`/api/v1/observations/${id}`);
-    setObservations((prev) => {
-      const next = prev.filter((o) => o.id !== id);
-      setState(getCollectionState(next));
-      return next;
-    });
-    setCount((prev) => prev - 1);
-  }, []);
+  const createObservationMutation = useMutation({
+    mutationFn: (observation: ObservationCreate) =>
+      api.post<Observation>("/api/v1/observations", observation),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.observations.all(),
+      });
+    },
+  });
 
-  useEffect(() => {
-    if (authLoading) return;
-    if (!session) {
-      setState(State.NONE);
-      return;
-    }
-    fetchObservations();
-  }, [authLoading, session, fetchObservations]);
+  const deleteObservationMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/api/v1/observations/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.observations.all(),
+      });
+    },
+  });
 
-  return { observations, count, state, error, createObservation, deleteObservation, refetch: fetchObservations };
+  return {
+    observations: query.data?.data ?? [],
+    count: query.data?.count ?? 0,
+    state,
+    error: query.error?.message ?? null,
+    createObservation: createObservationMutation.mutateAsync,
+    deleteObservation: deleteObservationMutation.mutateAsync,
+    refetch: query.refetch,
+  };
 }
