@@ -5,6 +5,7 @@ import health from "./routes/health";
 import auth from "./routes/auth";
 import profiles from "./routes/profiles";
 import tenants from "./routes/tenants";
+import vocabularies from "./routes/vocabularies";
 import entities from "./routes/entities";
 import observations from "./routes/observations";
 
@@ -34,6 +35,7 @@ app.route("/", health);
 app.route("/", auth);
 app.route("/", profiles);
 app.route("/", tenants);
+app.route("/", vocabularies);
 app.route("/", entities);
 app.route("/", observations);
 
