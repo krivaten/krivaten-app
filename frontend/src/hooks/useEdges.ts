@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
-import { State, getCollectionState } from "@/lib/state";
+import { State } from "@/lib/state";
+import { getQueryCollectionState } from "@/lib/queryState";
+import { queryKeys } from "@/lib/queryKeys";
 import type { Edge } from "@/types/edge";
 
 interface EdgeCreate {
@@ -18,53 +20,43 @@ interface EdgeCreate {
 
 export function useEdges(entityId?: string) {
   const { session, loading: authLoading } = useAuth();
-  const [edges, setEdges] = useState<Edge[]>([]);
-  const [state, setState] = useState<State>(State.INITIAL);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchEdges = useCallback(async () => {
-    try {
-      setState(State.PENDING);
-      setError(null);
+  const query = useQuery({
+    queryKey: queryKeys.edges.list(entityId),
+    queryFn: () => {
       const params = new URLSearchParams();
       if (entityId) params.set("entity_id", entityId);
       const qs = params.toString();
-      const data = await api.get<Edge[]>(`/api/v1/edges${qs ? `?${qs}` : ""}`);
-      setEdges(data);
-      setState(getCollectionState(data));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load edges");
-      setState(State.ERROR);
-    }
-  }, [entityId]);
+      return api.get<Edge[]>(`/api/v1/edges${qs ? `?${qs}` : ""}`);
+    },
+    enabled: !authLoading && !!session,
+  });
 
-  const createEdge = useCallback(async (edge: EdgeCreate) => {
-    const data = await api.post<Edge>("/api/v1/edges", edge);
-    setEdges((prev) => {
-      const next = [...prev, data];
-      setState(getCollectionState(next));
-      return next;
-    });
-    return data;
-  }, []);
+  const state =
+    !authLoading && !session ? State.NONE : getQueryCollectionState(query);
 
-  const deleteEdge = useCallback(async (id: string) => {
-    await api.delete(`/api/v1/edges/${id}`);
-    setEdges((prev) => {
-      const next = prev.filter((e) => e.id !== id);
-      setState(getCollectionState(next));
-      return next;
-    });
-  }, []);
+  const createEdgeMutation = useMutation({
+    mutationFn: (edge: EdgeCreate) =>
+      api.post<Edge>("/api/v1/edges", edge),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.edges.all() });
+    },
+  });
 
-  useEffect(() => {
-    if (authLoading) return;
-    if (!session) {
-      setState(State.NONE);
-      return;
-    }
-    fetchEdges();
-  }, [authLoading, session, fetchEdges]);
+  const deleteEdgeMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/api/v1/edges/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.edges.all() });
+    },
+  });
 
-  return { edges, state, error, createEdge, deleteEdge, refetch: fetchEdges };
+  return {
+    edges: query.data ?? [],
+    state,
+    error: query.error?.message ?? null,
+    createEdge: createEdgeMutation.mutateAsync,
+    deleteEdge: deleteEdgeMutation.mutateAsync,
+    refetch: query.refetch,
+  };
 }
