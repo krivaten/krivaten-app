@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useObservations } from "@/hooks/useObservations";
+import { useVocabularies } from "@/hooks/useVocabularies";
 import { ObservationForm } from "@/components/observations/ObservationForm";
 import { Timeline } from "@/components/observations/Timeline";
 import { Button } from "@/components/ui/button";
@@ -12,35 +13,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const CATEGORIES = [
-  "feeding",
-  "sleep",
-  "behavior",
-  "health",
-  "note",
-  "soil",
-  "planting",
-  "harvest",
-  "inventory",
-  "maintenance",
-];
-
 export default function Observations() {
   const [formOpen, setFormOpen] = useState(false);
-  const [category, setCategory] = useState("");
+  const [variable, setVariable] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [page, setPage] = useState(1);
 
+  const { vocabularies: variables } = useVocabularies({ type: "variable" });
+
   const filters = useMemo(
     () => ({
-      category: category || undefined,
+      variable: variable || undefined,
       from: fromDate || undefined,
       to: toDate || undefined,
       page,
       per_page: 30,
     }),
-    [category, fromDate, toDate, page],
+    [variable, fromDate, toDate, page],
   );
 
   const { observations, count, state, createObservation } = useObservations(filters);
@@ -54,20 +44,20 @@ export default function Observations() {
 
       <div className="flex flex-wrap gap-3">
         <Select
-          value={category}
+          value={variable}
           onValueChange={(v) => {
-            setCategory(v === "all" ? "" : v);
+            setVariable(v === "all" ? "" : v);
             setPage(1);
           }}
         >
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Category..." />
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Variable..." />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {CATEGORIES.map((cat) => (
-              <SelectItem key={cat} value={cat}>
-                {cat.charAt(0).toUpperCase() + cat.slice(1)}
+            <SelectItem value="all">All Variables</SelectItem>
+            {variables.map((v) => (
+              <SelectItem key={v.id} value={v.code}>
+                {v.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -92,12 +82,12 @@ export default function Observations() {
           className="w-[160px]"
           placeholder="To..."
         />
-        {(category || fromDate || toDate) && (
+        {(variable || fromDate || toDate) && (
           <Button
             variant="ghost"
             size="sm"
             onClick={() => {
-              setCategory("");
+              setVariable("");
               setFromDate("");
               setToDate("");
               setPage(1);

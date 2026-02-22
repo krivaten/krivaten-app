@@ -6,7 +6,6 @@ import { QuickLog } from "@/components/observations/QuickLog";
 import { Timeline } from "@/components/observations/Timeline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-
 export default function Dashboard() {
   const { tenant } = useTenantContext();
   const { entities } = useEntities();

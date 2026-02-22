@@ -3,27 +3,13 @@ import { useParams, Link } from "react-router";
 import { api } from "@/lib/api";
 import { State, getSingleState } from "@/lib/state";
 import { useObservations } from "@/hooks/useObservations";
+import { useEdges } from "@/hooks/useEdges";
 import { ObservationForm } from "@/components/observations/ObservationForm";
 import { Timeline } from "@/components/observations/Timeline";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Entity, EntityType } from "@/types/entity";
-import {
-  ENTITY_PROPERTY_FIELDS,
-  formatPropertyValue,
-} from "@/config/entityPropertyFields";
-
-const TYPE_COLORS: Record<string, string> = {
-  person: "bg-blue-100 text-blue-800",
-  location: "bg-green-100 text-green-800",
-  plant: "bg-emerald-100 text-emerald-800",
-  animal: "bg-amber-100 text-amber-800",
-  project: "bg-purple-100 text-purple-800",
-  equipment: "bg-slate-100 text-slate-800",
-  supply: "bg-orange-100 text-orange-800",
-  process: "bg-pink-100 text-pink-800",
-};
+import type { Entity } from "@/types/entity";
 
 export default function EntityDetail() {
   const { id } = useParams<{ id: string }>();
@@ -33,13 +19,15 @@ export default function EntityDetail() {
   const [page, setPage] = useState(1);
 
   const { observations, count, state: obsState, createObservation, refetch } =
-    useObservations(id ? { entity_id: id, page, per_page: 20 } : undefined);
+    useObservations(id ? { subject_id: id, page, per_page: 20 } : undefined);
+
+  const { edges } = useEdges(id);
 
   const fetchEntity = useCallback(async () => {
     if (!id) return;
     try {
       setEntityState(State.PENDING);
-      const data = await api.get<Entity>(`/api/entities/${id}`);
+      const data = await api.get<Entity>(`/api/v1/entities/${id}`);
       setEntity(data);
       setEntityState(getSingleState(data));
     } catch {
@@ -67,8 +55,8 @@ export default function EntityDetail() {
     );
   }
 
-  const properties = entity.properties && Object.keys(entity.properties).length > 0
-    ? entity.properties
+  const attributes = entity.attributes && Object.keys(entity.attributes).length > 0
+    ? entity.attributes
     : null;
 
   return (
@@ -77,42 +65,69 @@ export default function EntityDetail() {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <h1 className="text-2xl font-bold">{entity.name}</h1>
-            <Badge variant="secondary" className={TYPE_COLORS[entity.type] || ""}>
-              {entity.type}
+            <Badge variant="secondary">
+              {entity.entity_type?.name || "Unknown"}
             </Badge>
           </div>
-          <p className="text-sm text-muted-foreground">
+          {entity.description && (
+            <p className="text-sm text-muted-foreground mb-1">{entity.description}</p>
+          )}
+          <p className="text-xs text-muted-foreground">
             Created {new Date(entity.created_at).toLocaleDateString()}
           </p>
         </div>
         <Button onClick={() => setFormOpen(true)}>Log Observation</Button>
       </div>
 
-      {properties && (() => {
-        const fieldDefs = ENTITY_PROPERTY_FIELDS[entity.type as EntityType] ?? [];
-        const fieldsWithValues = fieldDefs.filter(
-          (f) => properties[f.key] !== undefined && properties[f.key] !== null && properties[f.key] !== "",
-        );
-        return fieldsWithValues.length > 0 ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Properties</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                {fieldsWithValues.map((field) => (
-                  <div key={field.key}>
-                    <dt className="text-muted-foreground">{field.label}</dt>
-                    <dd className="font-medium">
-                      {formatPropertyValue(field, properties[field.key])}
-                    </dd>
+      {attributes && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Attributes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              {Object.entries(attributes).map(([key, value]) => (
+                <div key={key}>
+                  <dt className="text-muted-foreground">{key}</dt>
+                  <dd className="font-medium">{String(value)}</dd>
+                </div>
+              ))}
+            </dl>
+          </CardContent>
+        </Card>
+      )}
+
+      {edges.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Connections {edges.length > 0 && <span className="text-muted-foreground font-normal">({edges.length})</span>}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {edges.map((edge) => {
+                const isSource = edge.source_id === id;
+                const related = isSource ? edge.target : edge.source;
+                const direction = isSource ? "\u2192" : "\u2190";
+                return (
+                  <div key={edge.id} className="flex items-center gap-2 text-sm">
+                    <Badge variant="outline" className="text-xs">{edge.edge_type}</Badge>
+                    <span>{direction}</span>
+                    {related ? (
+                      <Link to={`/entities/${related.id}`} className="hover:underline">
+                        {related.name}
+                      </Link>
+                    ) : (
+                      <span className="text-muted-foreground">Unknown</span>
+                    )}
                   </div>
-                ))}
-              </dl>
-            </CardContent>
-          </Card>
-        ) : null;
-      })()}
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div>
         <h2 className="text-lg font-semibold mb-4">
@@ -134,7 +149,7 @@ export default function EntityDetail() {
           refetch();
           return result;
         }}
-        defaultEntityId={id}
+        defaultSubjectId={id}
       />
     </div>
   );
