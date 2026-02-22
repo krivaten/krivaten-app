@@ -219,4 +219,69 @@ entities.delete("/api/v1/entities/:id", async (c) => {
   return c.body(null, 204);
 });
 
+// GET /api/v1/entities/:id/edges — Edges for this entity
+entities.get("/api/v1/entities/:id/edges", async (c) => {
+  const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
+  const id = c.req.param("id");
+
+  const { data, error } = await supabase
+    .from("edges")
+    .select("*, source:entities!source_id(id, name), target:entities!target_id(id, name)")
+    .or(`source_id.eq.${id},target_id.eq.${id}`)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return c.json({ detail: `Error fetching edges: ${error.message}` }, 500);
+  }
+
+  return c.json(data);
+});
+
+// GET /api/v1/entities/:id/timeseries — Time-series observations via RPC
+entities.get("/api/v1/entities/:id/timeseries", async (c) => {
+  const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
+  const id = c.req.param("id");
+
+  const variableCode = c.req.query("variable") || null;
+  const from = c.req.query("from") || null;
+  const to = c.req.query("to") || null;
+  const limit = parseInt(c.req.query("limit") || "1000");
+
+  const { data, error } = await supabase.rpc("get_time_series", {
+    p_entity_id: id,
+    p_variable_code: variableCode,
+    p_from: from,
+    p_to: to,
+    p_limit: limit,
+  });
+
+  if (error) {
+    return c.json({ detail: `Error fetching time series: ${error.message}` }, 500);
+  }
+
+  return c.json(data);
+});
+
+// GET /api/v1/entities/:id/related — Related entities via graph traversal RPC
+entities.get("/api/v1/entities/:id/related", async (c) => {
+  const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
+  const id = c.req.param("id");
+
+  const maxDepth = parseInt(c.req.query("max_depth") || "2");
+  const edgeTypesParam = c.req.query("edge_types");
+  const edgeTypes = edgeTypesParam ? edgeTypesParam.split(",") : null;
+
+  const { data, error } = await supabase.rpc("get_related_entities", {
+    p_entity_id: id,
+    p_max_depth: maxDepth,
+    p_edge_types: edgeTypes,
+  });
+
+  if (error) {
+    return c.json({ detail: `Error fetching related entities: ${error.message}` }, 500);
+  }
+
+  return c.json(data);
+});
+
 export default entities;

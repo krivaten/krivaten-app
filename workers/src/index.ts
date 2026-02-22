@@ -9,6 +9,7 @@ import vocabularies from "./routes/vocabularies";
 import entities from "./routes/entities";
 import edges from "./routes/edges";
 import observations from "./routes/observations";
+import search from "./routes/search";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -40,5 +41,6 @@ app.route("/", vocabularies);
 app.route("/", entities);
 app.route("/", edges);
 app.route("/", observations);
+app.route("/", search);
 
 export default app;
