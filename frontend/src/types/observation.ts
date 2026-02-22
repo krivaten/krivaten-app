@@ -1,27 +1,25 @@
+import type { Entity } from "./entity";
+import type { Vocabulary } from "./vocabulary";
+
 export interface Observation {
   id: string;
-  household_id: string;
-  entity_id: string;
-  observer_id: string;
+  tenant_id: string;
   observed_at: string;
-  category: string;
-  subcategory: string | null;
-  data: Record<string, unknown>;
-  notes: string | null;
-  tags: string[];
-  attachments: unknown[];
+  subject_id: string;
+  observer_id: string | null;
+  variable_id: string | null;
+  value_numeric: number | null;
+  value_text: string | null;
+  value_boolean: boolean | null;
+  value_json: Record<string, unknown> | null;
+  unit_id: string | null;
+  quality_flag: string | null;
+  method_id: string | null;
+  attributes: Record<string, unknown>;
   created_at: string;
-  entity?: { id: string; name: string; type: string };
-}
-
-export interface ObservationCreate {
-  entity_id: string;
-  observed_at?: string;
-  category: string;
-  subcategory?: string;
-  data?: Record<string, unknown>;
-  notes?: string;
-  tags?: string[];
+  subject?: Pick<Entity, "id" | "name">;
+  variable?: Vocabulary;
+  unit?: Vocabulary;
 }
 
 export interface PaginatedResponse<T> {

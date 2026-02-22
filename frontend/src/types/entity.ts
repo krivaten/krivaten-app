@@ -1,28 +1,18 @@
-export type EntityType =
-  | "person"
-  | "location"
-  | "plant"
-  | "project"
-  | "equipment"
-  | "supply"
-  | "process"
-  | "animal";
+import type { Vocabulary } from "./vocabulary";
 
 export interface Entity {
   id: string;
-  household_id: string;
-  type: EntityType;
+  tenant_id: string;
+  entity_type_id: string;
   name: string;
-  parent_id: string | null;
-  properties: Record<string, unknown>;
-  archived: boolean;
+  description: string | null;
+  external_id: string | null;
+  taxonomy_path: string | null;
+  location: unknown | null;
+  elevation_m: number | null;
+  attributes: Record<string, unknown>;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
-}
-
-export interface EntityCreate {
-  type: EntityType;
-  name: string;
-  parent_id?: string;
-  properties?: Record<string, unknown>;
+  entity_type?: Vocabulary;
 }
