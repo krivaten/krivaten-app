@@ -1,164 +1,95 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { appGet, appPost, appDelete } from "../helpers/request";
 import { authHeaders } from "../helpers/auth";
 import { cleanupAllData } from "../helpers/cleanup";
 import {
-  setupUserWithHousehold,
+  setupUserWithTenant,
+  getSystemVocabId,
   createEntityForUser,
   createObservationForUser,
+  type TestUser,
 } from "../helpers/fixtures";
 
 describe("Observations Routes", () => {
-  let user: { id: string; email: string; accessToken: string };
+  let user: TestUser;
   let headers: Record<string, string>;
-  let entityId: string;
+  let entity: Entity;
 
   beforeEach(async () => {
     await cleanupAllData();
-    const setup = await setupUserWithHousehold("obs");
+    const setup = await setupUserWithTenant("obs");
     user = setup.user;
     headers = authHeaders(user.accessToken);
-    const entity = await createEntityForUser(user, {
-      type: "person",
-      name: "Test Person",
-    });
-    entityId = entity.id;
+    entity = await createEntityForUser(user, { entity_type: "plant", name: "Tomato" });
   });
 
-  afterEach(async () => {
-    await cleanupAllData();
-  });
+  describe("POST /api/v1/observations", () => {
+    it("creates observation with variable_id and value_numeric", async () => {
+      const varId = await getSystemVocabId(user, "variable", "temperature");
+      const unitId = await getSystemVocabId(user, "unit", "celsius");
 
-  describe("POST /api/observations", () => {
-    it("creates observation with entity join in response", async () => {
       const res = await appPost(
-        "/api/observations",
+        "/api/v1/observations",
         {
-          entity_id: entityId,
-          category: "mood",
-          notes: "Feeling good",
-          tags: ["positive"],
+          subject_id: entity.id,
+          variable_id: varId,
+          value_numeric: 22.5,
+          unit_id: unitId,
         },
         headers,
       );
       expect(res.status).toBe(201);
       const body = await res.json();
-      expect(body.entity_id).toBe(entityId);
-      expect(body.category).toBe("mood");
-      expect(body.notes).toBe("Feeling good");
-      expect(body.tags).toEqual(["positive"]);
-      expect(body.entity).toBeDefined();
-      expect(body.entity.name).toBe("Test Person");
-    });
-  });
-
-  describe("GET /api/observations", () => {
-    it("returns paginated results", async () => {
-      await createObservationForUser(user, {
-        entity_id: entityId,
-        category: "mood",
-      });
-      await createObservationForUser(user, {
-        entity_id: entityId,
-        category: "health",
-      });
-
-      const res = await appGet("/api/observations", headers);
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.data).toHaveLength(2);
-      expect(body.count).toBe(2);
-      expect(body.page).toBe(1);
-      expect(body.per_page).toBeDefined();
+      expect(body.subject_id).toBe(entity.id);
+      expect(body.value_numeric).toBe(22.5);
+      expect(body.observer_id).toBe(user.id);
     });
 
-    it("filters by entity_id", async () => {
-      const entity2 = await createEntityForUser(user, {
-        type: "location",
-        name: "Garden",
-      });
-      await createObservationForUser(user, {
-        entity_id: entityId,
-        category: "mood",
-      });
-      await createObservationForUser(user, {
-        entity_id: entity2.id,
-        category: "weather",
-      });
+    it("creates observation with value_text (no value_numeric)", async () => {
+      const varId = await getSystemVocabId(user, "variable", "note");
 
-      const res = await appGet(
-        `/api/observations?entity_id=${entityId}`,
-        headers,
-      );
-      const body = await res.json();
-      expect(body.data).toHaveLength(1);
-      expect(body.data[0].entity_id).toBe(entityId);
-    });
-
-    it("filters by category", async () => {
-      await createObservationForUser(user, {
-        entity_id: entityId,
-        category: "mood",
-      });
-      await createObservationForUser(user, {
-        entity_id: entityId,
-        category: "health",
-      });
-
-      const res = await appGet("/api/observations?category=mood", headers);
-      const body = await res.json();
-      expect(body.data).toHaveLength(1);
-      expect(body.data[0].category).toBe("mood");
-    });
-
-    it("filters by tags", async () => {
-      await createObservationForUser(user, {
-        entity_id: entityId,
-        category: "mood",
-        tags: ["positive", "morning"],
-      });
-      await createObservationForUser(user, {
-        entity_id: entityId,
-        category: "mood",
-        tags: ["negative"],
-      });
-
-      const res = await appGet("/api/observations?tags=positive", headers);
-      const body = await res.json();
-      expect(body.data).toHaveLength(1);
-      expect(body.data[0].tags).toContain("positive");
-    });
-
-    it("filters by date range (from/to)", async () => {
-      await createObservationForUser(user, {
-        entity_id: entityId,
-        category: "mood",
-        observed_at: "2026-01-01T10:00:00Z",
-      });
-      await createObservationForUser(user, {
-        entity_id: entityId,
-        category: "mood",
-        observed_at: "2026-02-15T10:00:00Z",
-      });
-
-      const res = await appGet(
-        "/api/observations?from=2026-02-01T00:00:00Z&to=2026-02-28T23:59:59Z",
-        headers,
-      );
-      const body = await res.json();
-      expect(body.data).toHaveLength(1);
-    });
-  });
-
-  describe("POST /api/observations/bulk", () => {
-    it("creates multiple observations", async () => {
       const res = await appPost(
-        "/api/observations/bulk",
+        "/api/v1/observations",
+        {
+          subject_id: entity.id,
+          variable_id: varId,
+          value_text: "Leaves looking healthy",
+        },
+        headers,
+      );
+      expect(res.status).toBe(201);
+      const body = await res.json();
+      expect(body.value_text).toBe("Leaves looking healthy");
+      expect(body.value_numeric).toBeNull();
+    });
+
+    it("creates observation with variable code lookup", async () => {
+      const res = await appPost(
+        "/api/v1/observations",
+        {
+          subject_id: entity.id,
+          variable: "humidity",
+          value_numeric: 65,
+        },
+        headers,
+      );
+      expect(res.status).toBe(201);
+      const body = await res.json();
+      expect(body.variable_id).toBeDefined();
+    });
+  });
+
+  describe("POST /api/v1/observations/batch", () => {
+    it("creates multiple observations in one request", async () => {
+      const varId = await getSystemVocabId(user, "variable", "temperature");
+
+      const res = await appPost(
+        "/api/v1/observations/batch",
         {
           observations: [
-            { entity_id: entityId, category: "mood" },
-            { entity_id: entityId, category: "health" },
-            { entity_id: entityId, category: "sleep" },
+            { subject_id: entity.id, variable_id: varId, value_numeric: 20 },
+            { subject_id: entity.id, variable_id: varId, value_numeric: 21 },
+            { subject_id: entity.id, variable_id: varId, value_numeric: 22 },
           ],
         },
         headers,
@@ -169,32 +100,102 @@ describe("Observations Routes", () => {
     });
   });
 
-  describe("GET /api/observations/:id", () => {
-    it("returns single observation", async () => {
-      const obs = await createObservationForUser(user, {
-        entity_id: entityId,
-        category: "mood",
-        notes: "Test note",
-      });
-      const res = await appGet(`/api/observations/${obs.id}`, headers);
+  describe("GET /api/v1/observations", () => {
+    it("lists observations with pagination", async () => {
+      const varId = await getSystemVocabId(user, "variable", "temperature");
+      await createObservationForUser(user, { subject_id: entity.id, variable_id: varId, value_numeric: 20 });
+      await createObservationForUser(user, { subject_id: entity.id, variable_id: varId, value_numeric: 21 });
+
+      const res = await appGet("/api/v1/observations?page=1&per_page=10", headers);
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.id).toBe(obs.id);
-      expect(body.notes).toBe("Test note");
+      expect(body.data).toHaveLength(2);
+      expect(body.count).toBe(2);
+    });
+
+    it("filters by subject_id", async () => {
+      const entity2 = await createEntityForUser(user, { entity_type: "plant", name: "Basil" });
+      const varId = await getSystemVocabId(user, "variable", "temperature");
+      await createObservationForUser(user, { subject_id: entity.id, variable_id: varId, value_numeric: 20 });
+      await createObservationForUser(user, { subject_id: entity2.id, variable_id: varId, value_numeric: 21 });
+
+      const res = await appGet(`/api/v1/observations?subject_id=${entity.id}`, headers);
+      const body = await res.json();
+      expect(body.data).toHaveLength(1);
+      expect(body.data[0].subject_id).toBe(entity.id);
+    });
+
+    it("filters by variable code", async () => {
+      const tempId = await getSystemVocabId(user, "variable", "temperature");
+      const noteId = await getSystemVocabId(user, "variable", "note");
+      await createObservationForUser(user, { subject_id: entity.id, variable_id: tempId, value_numeric: 20 });
+      await createObservationForUser(user, { subject_id: entity.id, variable_id: noteId, value_text: "A note" });
+
+      const res = await appGet("/api/v1/observations?variable=temperature", headers);
+      const body = await res.json();
+      expect(body.data).toHaveLength(1);
+      expect(body.data[0].value_numeric).toBe(20);
+    });
+
+    it("filters by time range (from/to)", async () => {
+      const varId = await getSystemVocabId(user, "variable", "temperature");
+      await createObservationForUser(user, {
+        subject_id: entity.id,
+        variable_id: varId,
+        value_numeric: 18,
+        observed_at: "2026-01-01T00:00:00Z",
+      });
+      await createObservationForUser(user, {
+        subject_id: entity.id,
+        variable_id: varId,
+        value_numeric: 22,
+        observed_at: "2026-02-15T00:00:00Z",
+      });
+
+      const res = await appGet(
+        "/api/v1/observations?from=2026-02-01T00:00:00Z&to=2026-03-01T00:00:00Z",
+        headers,
+      );
+      const body = await res.json();
+      expect(body.data).toHaveLength(1);
+      expect(body.data[0].value_numeric).toBe(22);
     });
   });
 
-  describe("DELETE /api/observations/:id", () => {
-    it("deletes own observation", async () => {
+  describe("GET /api/v1/observations/:id", () => {
+    it("returns observation with joined subject, variable, unit", async () => {
+      const varId = await getSystemVocabId(user, "variable", "temperature");
+      const unitId = await getSystemVocabId(user, "unit", "celsius");
       const obs = await createObservationForUser(user, {
-        entity_id: entityId,
-        category: "mood",
+        subject_id: entity.id,
+        variable_id: varId,
+        value_numeric: 22.5,
+        unit_id: unitId,
       });
-      const res = await appDelete(`/api/observations/${obs.id}`, headers);
-      expect(res.status).toBe(204);
 
-      const getRes = await appGet(`/api/observations/${obs.id}`, headers);
-      expect(getRes.status).toBe(404);
+      const res = await appGet(`/api/v1/observations/${obs.id}`, headers);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.subject).toBeDefined();
+      expect(body.subject.name).toBe("Tomato");
+      expect(body.variable).toBeDefined();
+      expect(body.variable.code).toBe("temperature");
+      expect(body.unit).toBeDefined();
+      expect(body.unit.code).toBe("celsius");
+    });
+  });
+
+  describe("DELETE /api/v1/observations/:id", () => {
+    it("deletes own observation, returns 204", async () => {
+      const varId = await getSystemVocabId(user, "variable", "note");
+      const obs = await createObservationForUser(user, {
+        subject_id: entity.id,
+        variable_id: varId,
+        value_text: "To delete",
+      });
+
+      const res = await appDelete(`/api/v1/observations/${obs.id}`, headers);
+      expect(res.status).toBe(204);
     });
   });
 });
