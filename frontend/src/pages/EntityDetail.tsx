@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router";
 import { api } from "@/lib/api";
 import { State, getSingleState } from "@/lib/state";
+import { useAuth } from "@/contexts/AuthContext";
 import { useObservations } from "@/hooks/useObservations";
 import { useEdges } from "@/hooks/useEdges";
 import { EntityForm } from "@/components/entities/EntityForm";
@@ -14,13 +15,14 @@ import type { Entity, EntityCreate } from "@/types/entity";
 
 export default function EntityDetail() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const [entity, setEntity] = useState<Entity | null>(null);
   const [entityState, setEntityState] = useState<State>(State.INITIAL);
   const [formOpen, setFormOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [page, setPage] = useState(1);
 
-  const { observations, count, state: obsState, createObservation, refetch } =
+  const { observations, count, state: obsState, createObservation, deleteObservation, refetch } =
     useObservations(id ? { subject_id: id, page, per_page: 20 } : undefined);
 
   const { edges } = useEdges(id);
@@ -143,6 +145,8 @@ export default function EntityDetail() {
           state={obsState}
           hasMore={observations.length < count}
           onLoadMore={() => setPage((p) => p + 1)}
+          onDelete={deleteObservation}
+          currentUserId={user?.id}
         />
       </div>
 

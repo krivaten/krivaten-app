@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { State } from "@/lib/state";
@@ -30,6 +31,13 @@ function formatValue(obs: Observation): string {
   if (obs.value_boolean !== null && obs.value_boolean !== undefined) {
     return obs.value_boolean ? "Yes" : "No";
   }
+  if (obs.value_json !== null && obs.value_json !== undefined) {
+    try {
+      return JSON.stringify(obs.value_json).slice(0, 80) + (JSON.stringify(obs.value_json).length > 80 ? "..." : "");
+    } catch {
+      return "JSON data";
+    }
+  }
   return "";
 }
 
@@ -39,9 +47,23 @@ interface Props {
   loadingMore?: boolean;
   hasMore: boolean;
   onLoadMore: () => void;
+  onDelete?: (id: string) => Promise<void>;
+  currentUserId?: string;
 }
 
-export function Timeline({ observations, state, loadingMore, hasMore, onLoadMore }: Props) {
+export function Timeline({ observations, state, loadingMore, hasMore, onLoadMore, onDelete, currentUserId }: Props) {
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function handleDelete(id: string) {
+    if (!onDelete || !confirm("Delete this observation? This cannot be undone.")) return;
+    setDeletingId(id);
+    try {
+      await onDelete(id);
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   if (state === State.INITIAL || state === State.PENDING) {
     return <div className="text-muted-foreground py-8 text-center">Loading observations...</div>;
   }
@@ -54,6 +76,7 @@ export function Timeline({ observations, state, loadingMore, hasMore, onLoadMore
     <div className="space-y-3">
       {observations.map((obs) => {
         const displayValue = formatValue(obs);
+        const isOwn = currentUserId && obs.observer_id === currentUserId;
         return (
           <div
             key={obs.id}
@@ -69,6 +92,9 @@ export function Timeline({ observations, state, loadingMore, hasMore, onLoadMore
                     {obs.variable.name}
                   </Badge>
                 )}
+                {isOwn && (
+                  <span className="text-xs text-muted-foreground">by you</span>
+                )}
               </div>
               {displayValue && (
                 <p className="text-sm text-muted-foreground">
@@ -76,8 +102,21 @@ export function Timeline({ observations, state, loadingMore, hasMore, onLoadMore
                 </p>
               )}
             </div>
-            <div className="text-xs text-muted-foreground whitespace-nowrap">
-              {timeAgo(obs.observed_at)}
+            <div className="flex items-start gap-2">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                {timeAgo(obs.observed_at)}
+              </span>
+              {onDelete && (
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="text-xs text-muted-foreground hover:text-destructive"
+                  onClick={() => handleDelete(obs.id)}
+                  disabled={deletingId === obs.id}
+                >
+                  {deletingId === obs.id ? "..." : "Delete"}
+                </Button>
+              )}
             </div>
           </div>
         );

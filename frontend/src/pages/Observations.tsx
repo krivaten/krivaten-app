@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useObservations } from "@/hooks/useObservations";
 import { useVocabularies } from "@/hooks/useVocabularies";
 import { ObservationForm } from "@/components/observations/ObservationForm";
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/select";
 
 export default function Observations() {
+  const { user } = useAuth();
   const [formOpen, setFormOpen] = useState(false);
   const [variable, setVariable] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -33,7 +35,7 @@ export default function Observations() {
     [variable, fromDate, toDate, page],
   );
 
-  const { observations, count, state, createObservation } = useObservations(filters);
+  const { observations, count, state, createObservation, deleteObservation } = useObservations(filters);
 
   return (
     <div className="space-y-6">
@@ -107,6 +109,8 @@ export default function Observations() {
         state={state}
         hasMore={observations.length < count}
         onLoadMore={() => setPage((p) => p + 1)}
+        onDelete={deleteObservation}
+        currentUserId={user?.id}
       />
 
       <ObservationForm
