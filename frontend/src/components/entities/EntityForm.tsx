@@ -8,7 +8,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -17,144 +16,72 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import type { Entity, EntityCreate, EntityType } from "@/types/entity";
-import {
-  ENTITY_PROPERTY_FIELDS,
-  type PropertyFieldDef,
-} from "@/config/entityPropertyFields";
-
-const ENTITY_TYPES: { value: EntityType; label: string }[] = [
-  { value: "person", label: "Person" },
-  { value: "location", label: "Location" },
-  { value: "plant", label: "Plant" },
-  { value: "animal", label: "Animal" },
-  { value: "project", label: "Project" },
-  { value: "equipment", label: "Equipment" },
-  { value: "supply", label: "Supply" },
-  { value: "process", label: "Process" },
-];
-
-function PropertyField({
-  field,
-  value,
-  onChange,
-}: {
-  field: PropertyFieldDef;
-  value: unknown;
-  onChange: (val: unknown) => void;
-}) {
-  switch (field.type) {
-    case "text":
-      return (
-        <div className="space-y-2">
-          <Label>{field.label}</Label>
-          <Input
-            value={(value as string) ?? ""}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder={field.label}
-          />
-        </div>
-      );
-    case "number":
-      return (
-        <div className="space-y-2">
-          <Label>{field.label}</Label>
-          <Input
-            type="number"
-            value={value !== undefined && value !== null ? String(value) : ""}
-            onChange={(e) =>
-              onChange(e.target.value === "" ? undefined : Number(e.target.value))
-            }
-            placeholder={field.label}
-          />
-        </div>
-      );
-    case "date":
-      return (
-        <div className="space-y-2">
-          <Label>{field.label}</Label>
-          <Input
-            type="date"
-            value={(value as string) ?? ""}
-            onChange={(e) => onChange(e.target.value)}
-          />
-        </div>
-      );
-    case "checkbox":
-      return (
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id={`prop-${field.key}`}
-            checked={(value as boolean) ?? false}
-            onCheckedChange={(checked) => onChange(checked === true)}
-          />
-          <Label htmlFor={`prop-${field.key}`}>{field.label}</Label>
-        </div>
-      );
-    case "select":
-      return (
-        <div className="space-y-2">
-          <Label>{field.label}</Label>
-          <Select
-            value={(value as string) ?? ""}
-            onValueChange={(v) => onChange(v)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={`Select ${field.label.toLowerCase()}...`} />
-            </SelectTrigger>
-            <SelectContent>
-              {field.options?.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      );
-  }
-}
+import { useVocabularies } from "@/hooks/useVocabularies";
+import type { Entity, EntityCreate } from "@/types/entity";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (entity: EntityCreate) => Promise<Entity>;
-  initialType?: EntityType;
+  initialTypeCode?: string;
 }
 
-export function EntityForm({ open, onOpenChange, onSubmit, initialType }: Props) {
+export function EntityForm({ open, onOpenChange, onSubmit, initialTypeCode }: Props) {
+  const { vocabularies: entityTypes } = useVocabularies({ type: "entity_type" });
   const [name, setName] = useState("");
-  const [type, setType] = useState<EntityType | "">(initialType ?? "");
-  const [properties, setProperties] = useState<Record<string, unknown>>({});
+  const [typeId, setTypeId] = useState("");
+  const [description, setDescription] = useState("");
+  const [taxonomyPath, setTaxonomyPath] = useState("");
+  const [attrEntries, setAttrEntries] = useState<{ key: string; value: string }[]>([]);
   const [loading, setLoading] = useState(false);
 
-  function handleTypeChange(newType: EntityType) {
-    setType(newType);
-    setProperties({});
+  // Resolve initialTypeCode to an id when entity types load
+  const resolvedInitialId = initialTypeCode
+    ? entityTypes.find((v) => v.code === initialTypeCode)?.id || ""
+    : "";
+
+  const selectedTypeId = typeId || resolvedInitialId;
+
+  function addAttrEntry() {
+    setAttrEntries((prev) => [...prev, { key: "", value: "" }]);
+  }
+
+  function removeAttrEntry(index: number) {
+    setAttrEntries((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function updateAttrEntry(index: number, field: "key" | "value", val: string) {
+    setAttrEntries((prev) =>
+      prev.map((entry, i) => (i === index ? { ...entry, [field]: val } : entry)),
+    );
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !type) return;
+    if (!name.trim() || !selectedTypeId) return;
 
     setLoading(true);
     try {
-      const cleanedProps: Record<string, unknown> = {};
-      for (const [key, val] of Object.entries(properties)) {
-        if (val !== undefined && val !== null && val !== "") {
-          cleanedProps[key] = val;
+      const attributes: Record<string, unknown> = {};
+      for (const entry of attrEntries) {
+        if (entry.key.trim()) {
+          attributes[entry.key.trim()] = entry.value;
         }
       }
 
       await onSubmit({
-        type,
+        entity_type_id: selectedTypeId,
         name: name.trim(),
-        properties: Object.keys(cleanedProps).length > 0 ? cleanedProps : undefined,
+        description: description.trim() || undefined,
+        taxonomy_path: taxonomyPath.trim() || undefined,
+        attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
       });
       toast.success("Entity created!");
       setName("");
-      setType(initialType ?? "");
-      setProperties({});
+      setTypeId("");
+      setDescription("");
+      setTaxonomyPath("");
+      setAttrEntries([]);
       onOpenChange(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create entity");
@@ -162,8 +89,6 @@ export function EntityForm({ open, onOpenChange, onSubmit, initialType }: Props)
       setLoading(false);
     }
   }
-
-  const fieldDefs = type ? ENTITY_PROPERTY_FIELDS[type] : [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -185,36 +110,72 @@ export function EntityForm({ open, onOpenChange, onSubmit, initialType }: Props)
           <div className="space-y-2">
             <Label>Type</Label>
             <Select
-              value={type}
-              onValueChange={(v) => handleTypeChange(v as EntityType)}
+              value={selectedTypeId}
+              onValueChange={(v) => setTypeId(v)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select type..." />
               </SelectTrigger>
               <SelectContent>
-                {ENTITY_TYPES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.label}
+                {entityTypes.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          {fieldDefs.length > 0 && (
-            <div className="space-y-3">
-              {fieldDefs.map((field) => (
-                <PropertyField
-                  key={field.key}
-                  field={field}
-                  value={properties[field.key]}
-                  onChange={(val) =>
-                    setProperties((prev) => ({ ...prev, [field.key]: val }))
-                  }
-                />
+          <div className="space-y-2">
+            <Label htmlFor="entity-description">Description (optional)</Label>
+            <Input
+              id="entity-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Brief description..."
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="entity-taxonomy">Taxonomy Path (optional)</Label>
+            <Input
+              id="entity-taxonomy"
+              value={taxonomyPath}
+              onChange={(e) => setTaxonomyPath(e.target.value)}
+              placeholder="e.g. biology.botany.flowering"
+            />
+          </div>
+          {attrEntries.length > 0 && (
+            <div className="space-y-2">
+              <Label>Attributes</Label>
+              {attrEntries.map((entry, i) => (
+                <div key={i} className="flex gap-2">
+                  <Input
+                    value={entry.key}
+                    onChange={(e) => updateAttrEntry(i, "key", e.target.value)}
+                    placeholder="Key"
+                    className="flex-1"
+                  />
+                  <Input
+                    value={entry.value}
+                    onChange={(e) => updateAttrEntry(i, "value", e.target.value)}
+                    placeholder="Value"
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeAttrEntry(i)}
+                  >
+                    Remove
+                  </Button>
+                </div>
               ))}
             </div>
           )}
-          <Button type="submit" disabled={loading || !name.trim() || !type} className="w-full">
+          <Button type="button" variant="outline" size="sm" onClick={addAttrEntry}>
+            Add Attribute
+          </Button>
+          <Button type="submit" disabled={loading || !name.trim() || !selectedTypeId} className="w-full">
             {loading ? "Creating..." : "Create Entity"}
           </Button>
         </form>
