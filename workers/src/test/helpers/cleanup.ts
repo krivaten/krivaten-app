@@ -12,6 +12,7 @@ export async function cleanupAllData(): Promise<void> {
   await adminClient.from("edges").delete().neq("id", "00000000-0000-0000-0000-000000000000");
   await adminClient.from("entities").delete().neq("id", "00000000-0000-0000-0000-000000000000");
   await adminClient.from("vocabularies").delete().eq("is_system", false);
+  await adminClient.from("tenant_members").delete().neq("id", "00000000-0000-0000-0000-000000000000");
   await adminClient.from("profiles").delete().neq("id", "00000000-0000-0000-0000-000000000000");
   await adminClient.from("tenants").delete().neq("id", "00000000-0000-0000-0000-000000000000");
 

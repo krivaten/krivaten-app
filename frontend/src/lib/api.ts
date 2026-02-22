@@ -36,7 +36,20 @@ export class ApiClient {
     });
 
     if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      if (response.status === 401) {
+        await supabase.auth.signOut();
+        window.location.href = "/signin";
+        throw new Error("Session expired. Redirecting to sign in.");
+      }
+
+      let detail = response.statusText;
+      try {
+        const body = await response.json();
+        if (body.detail) detail = body.detail;
+      } catch {
+        // response body wasn't JSON
+      }
+      throw new Error(`${response.status}: ${detail}`);
     }
 
     return response.json();
@@ -68,7 +81,20 @@ export class ApiClient {
       headers: { ...authHeaders },
     });
     if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      if (response.status === 401) {
+        await supabase.auth.signOut();
+        window.location.href = "/signin";
+        throw new Error("Session expired. Redirecting to sign in.");
+      }
+
+      let detail = response.statusText;
+      try {
+        const body = await response.json();
+        if (body.detail) detail = body.detail;
+      } catch {
+        // response body wasn't JSON
+      }
+      throw new Error(`${response.status}: ${detail}`);
     }
   }
 }

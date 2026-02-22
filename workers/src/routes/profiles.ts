@@ -2,6 +2,7 @@ import { Hono } from "hono";
 
 import { authMiddleware, getUser } from "../middleware/auth";
 import { createSupabaseClientWithAuth } from "../lib/supabase";
+import { ensureProfile } from "../lib/profile";
 
 const profiles = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -12,6 +13,11 @@ profiles.get("/api/v1/profiles/me", async (c) => {
   const user = getUser(c);
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
 
+  const profile = await ensureProfile(supabase, user);
+  if (!profile) {
+    return c.json({ detail: "Session is invalid. Please sign in again." }, 401);
+  }
+
   const { data, error } = await supabase
     .from("profiles")
     .select("*")
@@ -19,25 +25,6 @@ profiles.get("/api/v1/profiles/me", async (c) => {
     .single();
 
   if (error) {
-    if (error.code === "PGRST116") {
-      // Profile doesn't exist yet — create it
-      const { data: newProfile, error: insertError } = await supabase
-        .from("profiles")
-        .insert({
-          id: user.id,
-          display_name: user.email?.split("@")[0] ?? null,
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        return c.json(
-          { detail: `Error creating profile: ${insertError.message}` },
-          500,
-        );
-      }
-      return c.json(newProfile);
-    }
     return c.json({ detail: `Error fetching profile: ${error.message}` }, 500);
   }
 

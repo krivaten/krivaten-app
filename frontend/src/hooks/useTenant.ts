@@ -14,6 +14,7 @@ export function useTenant() {
     try {
       setState(State.PENDING);
       setError(null);
+      await api.get("/api/v1/profiles/me");
       const data = await api.get<Tenant>("/api/v1/tenants/mine");
       setTenant(data);
       setState(getSingleState(data));

@@ -8,10 +8,11 @@ export async function getTenantId(
   const user = c.get("user");
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
   const { data } = await supabase
-    .from("profiles")
+    .from("tenant_members")
     .select("tenant_id")
-    .eq("id", user.id)
-    .single();
+    .eq("user_id", user.id)
+    .eq("is_active", true)
+    .maybeSingle();
   return data?.tenant_id ?? null;
 }
 

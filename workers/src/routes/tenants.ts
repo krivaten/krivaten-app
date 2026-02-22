@@ -3,6 +3,7 @@ import type { Env, Variables } from "../types/env.d.ts";
 import { authMiddleware, getUser } from "../middleware/auth";
 import { createSupabaseClientWithAuth } from "../lib/supabase";
 import { getTenantId } from "../lib/tenant";
+import { ensureProfile } from "../lib/profile";
 
 const tenants = new Hono<{ Bindings: Env; Variables: Variables }>();
 tenants.use("*", authMiddleware);
@@ -12,9 +13,15 @@ tenants.post("/api/v1/tenants", async (c) => {
   const user = getUser(c);
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
 
-  // Check user doesn't already belong to a tenant
-  const existing = await getTenantId(c);
-  if (existing) {
+  // Ensure profile exists (also detects stale JWTs)
+  const profile = await ensureProfile(supabase, user);
+  if (!profile) {
+    return c.json({ detail: "Session is invalid. Please sign in again." }, 401);
+  }
+
+  // Check user doesn't already have an active membership
+  const existingTenantId = await getTenantId(c);
+  if (existingTenantId) {
     return c.json({ detail: "You already belong to a workspace" }, 400);
   }
 
@@ -29,9 +36,6 @@ tenants.post("/api/v1/tenants", async (c) => {
     return c.json({ detail: "Workspace name is required" }, 400);
   }
 
-  // Generate ID up front — chicken-and-egg pattern:
-  // INSERT without .select() (SELECT RLS checks get_my_tenant_id() which is still NULL),
-  // update profile's tenant_id, then fetch the tenant.
   const tenantId = crypto.randomUUID();
 
   const { error: tError } = await supabase
@@ -42,17 +46,21 @@ tenants.post("/api/v1/tenants", async (c) => {
     return c.json({ detail: `Error creating workspace: ${tError.message}` }, 500);
   }
 
-  // Assign user to tenant as admin
-  const { error: pError } = await supabase
-    .from("profiles")
-    .update({ tenant_id: tenantId, role: "admin" })
-    .eq("id", user.id);
+  // Create membership (admin, active)
+  const { error: mError } = await supabase
+    .from("tenant_members")
+    .insert({
+      tenant_id: tenantId,
+      user_id: user.id,
+      role: "admin",
+      is_active: true,
+    });
 
-  if (pError) {
-    return c.json({ detail: `Error assigning workspace: ${pError.message}` }, 500);
+  if (mError) {
+    return c.json({ detail: `Error creating membership: ${mError.message}` }, 500);
   }
 
-  // Now fetch the tenant (SELECT policy passes because profile is updated)
+  // Fetch the tenant (RLS passes because membership exists and is active)
   const { data: tenant, error: fetchError } = await supabase
     .from("tenants")
     .select("*")

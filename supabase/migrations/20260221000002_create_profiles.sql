@@ -1,15 +1,11 @@
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  tenant_id UUID REFERENCES public.tenants(id) ON DELETE SET NULL,
   display_name TEXT,
   avatar_url TEXT,
   bio TEXT,
-  role TEXT NOT NULL DEFAULT 'member',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
-CREATE INDEX idx_profiles_tenant_id ON public.profiles(tenant_id);
 
 -- Auto-create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()

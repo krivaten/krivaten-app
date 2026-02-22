@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { appGet, appPost, appPut } from "../helpers/request";
 import { createTestUser, authHeaders } from "../helpers/auth";
 import { cleanupAllData } from "../helpers/cleanup";
+import { adminClient } from "../setup";
 import type { TestUser } from "../helpers/fixtures";
 
 describe("Tenants Routes", () => {
@@ -37,6 +38,25 @@ describe("Tenants Routes", () => {
     it("returns 401 for unauthenticated requests", async () => {
       const res = await appPost("/api/v1/tenants", { name: "Test" });
       expect(res.status).toBe(401);
+    });
+
+    it("creates a tenant without explicit profile/me call", async () => {
+      const headers = authHeaders(user.accessToken);
+      const res = await appPost("/api/v1/tenants", { name: "Direct" }, headers);
+      expect(res.status).toBe(201);
+      const body = await res.json();
+      expect(body.name).toBe("Direct");
+    });
+
+    it("returns 401 for stale JWT (deleted user)", async () => {
+      const staleUser = await createTestUser("stale");
+      const headers = authHeaders(staleUser.accessToken);
+      await adminClient.from("profiles").delete().eq("id", staleUser.id);
+      await adminClient.auth.admin.deleteUser(staleUser.id);
+      const res = await appPost("/api/v1/tenants", { name: "Ghost" }, headers);
+      expect(res.status).toBe(401);
+      const body = await res.json();
+      expect(body.detail).toContain("Session is invalid");
     });
   });
 
