@@ -58,6 +58,8 @@ export function useTenant() {
     error: query.error?.message ?? null,
     createTenant: createTenantMutation.mutateAsync,
     updateTenant: updateTenantMutation.mutateAsync,
-    refetch: query.refetch,
+    refetch: async () => {
+      await query.refetch();
+    },
   };
 }

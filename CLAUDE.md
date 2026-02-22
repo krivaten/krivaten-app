@@ -4,7 +4,7 @@
 
 Krivaten is a Universal Observation Database — a vocabulary-driven platform for tracking entities (things), edges (relationships), and observations (measurements) across any domain.
 
-- **Frontend**: Vite + React + TypeScript + React Router + Tailwind CSS v4 + shadcn/ui → Cloudflare Pages
+- **Frontend**: Vite + React + TypeScript + React Router + TanStack Query v5 + Tailwind CSS v4 + shadcn/ui → Cloudflare Pages
 - **Backend**: Hono (TypeScript) on Cloudflare Workers
 - **Database**: Supabase (PostgreSQL with PostGIS, pgcrypto, Row Level Security)
 - **Authentication**: Supabase Auth (Google, GitHub, email/password)
@@ -163,11 +163,23 @@ The API accepts both vocabulary UUIDs and codes. For entities: `entity_type_id` 
 
 Observations store values in typed columns: `value_numeric`, `value_text`, `value_boolean`, `value_json`. Only one is populated per observation. The frontend auto-detects type and renders accordingly.
 
+### TanStack Query Data Fetching
+
+All data-fetching hooks use TanStack Query v5 (`useQuery`/`useMutation`). The `QueryClientProvider` wraps the app inside `AuthProvider` in `App.tsx`.
+
+- **Query key factory** (`frontend/src/lib/queryKeys.ts`): Centralized key definitions — `queryKeys.entities.list(filters)`, `queryKeys.entities.detail(id)`, `queryKeys.entities.all()`, etc. Mutations invalidate the `.all()` prefix to refetch all related queries.
+- **State bridge** (`frontend/src/lib/queryState.ts`): Converts TanStack Query status to the app's `State` enum via `getQueryCollectionState()`, `getQuerySingleState()`, `getQueryPaginatedState()`. This preserves the existing component contract.
+- **Defaults**: `staleTime: 2min`, `gcTime: 5min`, `retry: 1`, `refetchOnWindowFocus: false`
+- **Auth gating**: All hooks use `enabled: !authLoading && !!session` to prevent queries before auth resolves
+- **Cache invalidation**: Mutations call `queryClient.invalidateQueries({ queryKey: queryKeys.<domain>.all() })` on success. Updates that return the new object use `setQueryData` for instant UI updates.
+- **Converted hooks**: `useProfile`, `useTenant`, `useVocabularies`, `useEntities`, `useEdges`, `useObservations`, plus `EntityDetail.tsx` inline fetch
+- **DevTools**: `ReactQueryDevtools` included (flower icon, bottom-right in dev)
+
 ### Frontend State Enum
 
-Hooks use `State` from `frontend/src/lib/state.ts` instead of `loading: boolean`. Each data-fetching hook returns `{ data, state: State, error }`.
+Hooks return `State` from `frontend/src/lib/state.ts`. TanStack Query status is bridged via `queryState.ts` helpers.
 
-- **State flow**: `INITIAL` → `PENDING` → `NONE`/`ONE`/`SOME`/`MANY` or `ERROR`
+- **State values**: `INITIAL`, `PENDING`, `NONE`, `ONE`, `SOME`, `MANY`, `ERROR`, `SUCCESS`
 - **Helpers**: `getCollectionState(items[])` returns NONE/ONE/SOME/MANY (threshold = 10), `getSingleState(item)` returns NONE or ONE
 - **Components** check `state === State.PENDING` for loading, `State.ERROR` for errors, `State.NONE` for empty states
 - **AuthContext stays boolean** — auth init is a binary gate, not a data-fetching concern
