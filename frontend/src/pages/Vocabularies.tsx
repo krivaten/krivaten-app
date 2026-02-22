@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import type { VocabularyType } from "@/types/vocabulary";
+import type { Vocabulary, VocabularyType } from "@/types/vocabulary";
 
 const VOCAB_TABS: { value: VocabularyType; label: string }[] = [
   { value: "entity_type", label: "Entity Types" },
@@ -26,12 +26,47 @@ export default function Vocabularies() {
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [creating, setCreating] = useState(false);
+  const [editingVocab, setEditingVocab] = useState<Vocabulary | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const { vocabularies, state, error, createVocabulary, deleteVocabulary } =
+  const { vocabularies, state, error, createVocabulary, updateVocabulary, deleteVocabulary } =
     useVocabularies({ type: activeTab });
 
   const systemVocabs = vocabularies.filter((v) => v.is_system);
   const tenantVocabs = vocabularies.filter((v) => !v.is_system);
+
+  function startEditing(vocab: Vocabulary) {
+    setEditingVocab(vocab);
+    setEditName(vocab.name);
+    setEditDescription(vocab.description || "");
+  }
+
+  function cancelEditing() {
+    setEditingVocab(null);
+    setEditName("");
+    setEditDescription("");
+  }
+
+  async function handleSaveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingVocab || !editName.trim()) return;
+
+    setSaving(true);
+    try {
+      await updateVocabulary(editingVocab.id, {
+        name: editName.trim(),
+        description: editDescription.trim() || undefined,
+      });
+      toast.success("Vocabulary updated!");
+      cancelEditing();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -167,25 +202,72 @@ export default function Vocabularies() {
           <h2 className="text-sm font-medium text-muted-foreground mb-3">Custom</h2>
           <div className="grid gap-2">
             {tenantVocabs.map((v) => (
-              <div key={v.id} className="flex items-center justify-between rounded-lg border p-3">
-                <div className="flex items-center gap-3">
-                  <span className="font-medium text-sm">{v.name}</span>
-                  <Badge variant="secondary" className="text-xs">{v.code}</Badge>
+              editingVocab?.id === v.id ? (
+                <Card key={v.id}>
+                  <CardContent className="pt-4">
+                    <form onSubmit={handleSaveEdit} className="space-y-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant="secondary" className="text-xs">{v.code}</Badge>
+                        <span className="text-xs text-muted-foreground">Code cannot be changed</span>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-name">Name</Label>
+                        <Input
+                          id="edit-name"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-desc">Description</Label>
+                        <Input
+                          id="edit-desc"
+                          value={editDescription}
+                          onChange={(e) => setEditDescription(e.target.value)}
+                          placeholder="Brief description..."
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button type="submit" size="sm" disabled={saving || !editName.trim()}>
+                          {saving ? "Saving..." : "Save"}
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" onClick={cancelEditing}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </form>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div key={v.id} className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="flex items-center gap-3">
+                    <span className="font-medium text-sm">{v.name}</span>
+                    <Badge variant="secondary" className="text-xs">{v.code}</Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {v.description && (
+                      <span className="text-xs text-muted-foreground mr-2">{v.description}</span>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => startEditing(v)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs text-muted-foreground hover:text-destructive"
+                      onClick={() => handleDelete(v.id, v.name)}
+                    >
+                      Delete
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {v.description && (
-                    <span className="text-xs text-muted-foreground mr-2">{v.description}</span>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs text-muted-foreground hover:text-destructive"
-                    onClick={() => handleDelete(v.id, v.name)}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </div>
+              )
             ))}
           </div>
         </div>
