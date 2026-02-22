@@ -1,27 +1,26 @@
 import { Context } from "hono";
 import type { Env, Variables } from "../types/env.d.ts";
 import { createSupabaseClientWithAuth } from "./supabase";
-import { getUser } from "../middleware/auth";
 
-export async function getHouseholdId(
+export async function getTenantId(
   c: Context<{ Bindings: Env; Variables: Variables }>,
 ): Promise<string | null> {
-  const user = getUser(c);
+  const user = c.get("user");
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
   const { data } = await supabase
     .from("profiles")
-    .select("household_id")
+    .select("tenant_id")
     .eq("id", user.id)
     .single();
-  return data?.household_id ?? null;
+  return data?.tenant_id ?? null;
 }
 
-export async function requireHouseholdId(
+export async function requireTenantId(
   c: Context<{ Bindings: Env; Variables: Variables }>,
 ): Promise<string> {
-  const householdId = await getHouseholdId(c);
-  if (!householdId) {
-    throw new Error("NO_HOUSEHOLD");
+  const tenantId = await getTenantId(c);
+  if (!tenantId) {
+    throw new Error("NO_TENANT");
   }
-  return householdId;
+  return tenantId;
 }
