@@ -22,6 +22,21 @@ export interface Observation {
   unit?: Vocabulary;
 }
 
+export interface ObservationCreate {
+  subject_id: string;
+  variable_id?: string;
+  variable?: string;
+  value_numeric?: number;
+  value_text?: string;
+  value_boolean?: boolean;
+  value_json?: Record<string, unknown>;
+  unit_id?: string;
+  quality_flag?: string;
+  method_id?: string;
+  observed_at?: string;
+  attributes?: Record<string, unknown>;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   count: number;

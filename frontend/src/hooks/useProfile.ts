@@ -14,7 +14,7 @@ export function useProfile() {
     try {
       setState(State.PENDING);
       setError(null);
-      const data = await api.get<Profile>("/api/profiles/me");
+      const data = await api.get<Profile>("/api/v1/profiles/me");
       setProfile(data);
       setState(getSingleState(data));
     } catch (err) {
@@ -24,7 +24,7 @@ export function useProfile() {
   }, []);
 
   const updateProfile = useCallback(async (updates: ProfileUpdate) => {
-    const data = await api.put<Profile>("/api/profiles/me", updates);
+    const data = await api.put<Profile>("/api/v1/profiles/me", updates);
     setProfile(data);
     return data;
   }, []);

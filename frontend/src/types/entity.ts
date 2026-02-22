@@ -16,3 +16,13 @@ export interface Entity {
   updated_at: string;
   entity_type?: Vocabulary;
 }
+
+export interface EntityCreate {
+  entity_type_id?: string;
+  entity_type?: string;
+  name: string;
+  description?: string;
+  external_id?: string;
+  taxonomy_path?: string;
+  attributes?: Record<string, unknown>;
+}

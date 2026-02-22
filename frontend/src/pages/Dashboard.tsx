@@ -1,24 +1,14 @@
 import { useState } from "react";
-import { useHouseholdContext } from "@/contexts/HouseholdContext";
+import { useTenantContext } from "@/contexts/TenantContext";
 import { useEntities } from "@/hooks/useEntities";
 import { useObservations } from "@/hooks/useObservations";
 import { QuickLog } from "@/components/observations/QuickLog";
 import { Timeline } from "@/components/observations/Timeline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const ENTITY_TYPE_LABELS: Record<string, string> = {
-  person: "People",
-  location: "Locations",
-  plant: "Plants",
-  animal: "Animals",
-  project: "Projects",
-  equipment: "Equipment",
-  supply: "Supplies",
-  process: "Processes",
-};
 
 export default function Dashboard() {
-  const { household } = useHouseholdContext();
+  const { tenant } = useTenantContext();
   const { entities } = useEntities();
   const [page] = useState(1);
   const { observations, count, state: obsState, createObservation } = useObservations({
@@ -27,7 +17,8 @@ export default function Dashboard() {
   });
 
   const typeCounts = entities.reduce<Record<string, number>>((acc, e) => {
-    acc[e.type] = (acc[e.type] || 0) + 1;
+    const typeName = e.entity_type?.name || "Unknown";
+    acc[typeName] = (acc[typeName] || 0) + 1;
     return acc;
   }, {});
 
@@ -35,7 +26,7 @@ export default function Dashboard() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-display lowercase tracking-wider mb-1">
-          {household.name}
+          {tenant.name}
         </h1>
         <p className="text-muted-foreground">
           {entities.length} {entities.length === 1 ? "entity" : "entities"} tracked
@@ -48,7 +39,7 @@ export default function Dashboard() {
             <Card key={type}>
               <CardHeader className="pb-1 pt-4 px-4">
                 <CardTitle className="text-xs text-muted-foreground font-normal">
-                  {ENTITY_TYPE_LABELS[type] || type}
+                  {type}
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-4">
