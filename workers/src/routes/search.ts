@@ -25,7 +25,7 @@ search.get("/api/v1/search/entities", async (c) => {
 
   const { data, error } = await supabase
     .from("entities")
-    .select("*, entity_type:vocabularies!entity_type_id(*)")
+    .select("*, entity_type:entity_types!entity_type_id(*)")
     .eq("tenant_id", tenantId)
     .eq("is_active", true)
     .ilike("name", `%${q}%`)

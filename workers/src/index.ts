@@ -5,9 +5,10 @@ import health from "./routes/health";
 import auth from "./routes/auth";
 import profiles from "./routes/profiles";
 import tenants from "./routes/tenants";
-import vocabularies from "./routes/vocabularies";
+import entityTypes from "./routes/entity-types";
+import trackers from "./routes/trackers";
 import entities from "./routes/entities";
-import edges from "./routes/edges";
+import relationships from "./routes/relationships";
 import observations from "./routes/observations";
 import search from "./routes/search";
 
@@ -37,9 +38,10 @@ app.route("/", health);
 app.route("/", auth);
 app.route("/", profiles);
 app.route("/", tenants);
-app.route("/", vocabularies);
+app.route("/", entityTypes);
+app.route("/", trackers);
 app.route("/", entities);
-app.route("/", edges);
+app.route("/", relationships);
 app.route("/", observations);
 app.route("/", search);
 
