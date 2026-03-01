@@ -13,7 +13,7 @@ export interface TestUser {
  */
 export async function createTenantForUser(
   user: TestUser,
-  name = "Test Workspace",
+  name = "Test Space",
 ): Promise<{ id: string; name: string }> {
   const headers = authHeaders(user.accessToken);
 
@@ -34,7 +34,7 @@ export async function createTenantForUser(
  */
 export async function setupUserWithTenant(
   emailPrefix?: string,
-  tenantName = "Test Workspace",
+  tenantName = "Test Space",
 ): Promise<{ user: TestUser; tenant: { id: string; name: string } }> {
   const user = await createTestUser(emailPrefix);
   const tenant = await createTenantForUser(user, tenantName);
@@ -42,23 +42,42 @@ export async function setupUserWithTenant(
 }
 
 /**
- * Looks up a system vocabulary by type and code, returns its UUID.
+ * Looks up an entity type by code, returns its UUID.
  */
-export async function getSystemVocabId(
+export async function getEntityTypeId(
   user: TestUser,
-  type: string,
   code: string,
 ): Promise<string> {
   const headers = authHeaders(user.accessToken);
-  const res = await appGet(`/api/v1/vocabularies?type=${type}&code=${code}`, headers);
+  const res = await appGet(`/api/v1/entity-types?code=${code}`, headers);
   if (res.status !== 200) {
-    throw new Error(`Failed to look up vocabulary ${type}/${code}`);
+    throw new Error(`Failed to look up entity type: ${code}`);
   }
-  const vocabs = await res.json();
-  if (!Array.isArray(vocabs) || vocabs.length === 0) {
-    throw new Error(`System vocabulary not found: ${type}/${code}`);
+  const types: Array<{ id: string }> = await res.json();
+  if (types.length === 0) {
+    throw new Error(`Entity type not found: ${code}`);
   }
-  return vocabs[0].id;
+  return types[0].id;
+}
+
+/**
+ * Looks up a tracker by code, returns its UUID.
+ */
+export async function getTrackerId(
+  user: TestUser,
+  code: string,
+): Promise<string> {
+  const headers = authHeaders(user.accessToken);
+  const res = await appGet("/api/v1/trackers", headers);
+  if (res.status !== 200) {
+    throw new Error(`Failed to look up trackers`);
+  }
+  const trackers: Array<{ id: string; code: string }> = await res.json();
+  const tracker = trackers.find((t) => t.code === code);
+  if (!tracker) {
+    throw new Error(`Tracker not found: ${code}`);
+  }
+  return tracker.id;
 }
 
 /**
@@ -75,7 +94,14 @@ export async function createEntityForUser(
     taxonomy_path?: string;
     attributes?: Record<string, unknown>;
   },
-): Promise<Entity> {
+): Promise<{
+  id: string;
+  tenant_id: string;
+  entity_type_id: string;
+  name: string;
+  is_active: boolean;
+  [key: string]: unknown;
+}> {
   const headers = authHeaders(user.accessToken);
   const res = await appPost("/api/v1/entities", data, headers);
   if (res.status !== 201) {
@@ -91,18 +117,21 @@ export async function createEntityForUser(
 export async function createObservationForUser(
   user: TestUser,
   data: {
-    subject_id: string;
-    variable_id?: string;
-    variable?: string;
-    value_numeric?: number;
-    value_text?: string;
-    value_boolean?: boolean;
-    value_json?: Record<string, unknown>;
-    unit_id?: string;
+    entity_id: string;
+    tracker_id?: string;
+    tracker?: string;
     observed_at?: string;
-    attributes?: Record<string, unknown>;
+    field_values: Record<string, unknown>;
+    notes?: string;
   },
-): Promise<Observation> {
+): Promise<{
+  id: string;
+  entity_id: string;
+  tracker_id: string;
+  field_values: Record<string, unknown>;
+  observer_id: string;
+  [key: string]: unknown;
+}> {
   const headers = authHeaders(user.accessToken);
   const res = await appPost("/api/v1/observations", data, headers);
   if (res.status !== 201) {
@@ -113,24 +142,29 @@ export async function createObservationForUser(
 }
 
 /**
- * Creates an edge between two entities for a user who already has a tenant.
+ * Creates a relationship between two entities for a user who already has a tenant.
  */
-export async function createEdgeForUser(
+export async function createRelationshipForUser(
   user: TestUser,
   data: {
     source_id: string;
     target_id: string;
-    edge_type: string;
-    edge_type_id?: string;
+    type: string;
     label?: string;
     properties?: Record<string, unknown>;
   },
-): Promise<Edge> {
+): Promise<{
+  id: string;
+  source_id: string;
+  target_id: string;
+  type: string;
+  [key: string]: unknown;
+}> {
   const headers = authHeaders(user.accessToken);
-  const res = await appPost("/api/v1/edges", data, headers);
+  const res = await appPost("/api/v1/relationships", data, headers);
   if (res.status !== 201) {
     const body = await res.json();
-    throw new Error(`Failed to create edge: ${JSON.stringify(body)}`);
+    throw new Error(`Failed to create relationship: ${JSON.stringify(body)}`);
   }
   return res.json();
 }
