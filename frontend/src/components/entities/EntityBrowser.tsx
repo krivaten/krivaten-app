@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router";
 import { XIcon } from "lucide-react";
 import { useEntities } from "@/hooks/useEntities";
-import { useVocabularies } from "@/hooks/useVocabularies";
+import { useEntityTypes } from "@/hooks/useEntityTypes";
 import { State } from "@/lib/state";
 import { EntityForm } from "./EntityForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,7 +35,7 @@ export function EntityBrowser() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const { vocabularies: entityTypes } = useVocabularies({ type: "entity_type" });
+  const { entityTypes } = useEntityTypes();
 
   const typeFilter = activeTab === "all" ? undefined : activeTab;
   const { entities, state, error, createEntity, archiveEntity } = useEntities({

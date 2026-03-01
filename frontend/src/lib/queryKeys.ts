@@ -1,5 +1,3 @@
-import type { VocabularyType } from "@/types/vocabulary";
-
 interface EntityFilters {
   type?: string;
   search?: string;
@@ -7,13 +5,9 @@ interface EntityFilters {
   active?: boolean;
 }
 
-interface VocabularyFilters {
-  type?: VocabularyType;
-}
-
 interface ObservationFilters {
-  subject_id?: string;
-  variable?: string;
+  entity_id?: string;
+  tracker?: string;
   from?: string;
   to?: string;
   page?: number;
@@ -27,25 +21,31 @@ export const queryKeys = {
   tenant: {
     mine: () => ["tenant", "mine"] as const,
   },
+  entityTypes: {
+    all: () => ["entityTypes"] as const,
+    list: () => ["entityTypes", "list"] as const,
+  },
+  trackers: {
+    all: () => ["trackers"] as const,
+    list: (entityType?: string) =>
+      ["trackers", "list", entityType ?? "all"] as const,
+    detail: (id: string) => ["trackers", "detail", id] as const,
+  },
   entities: {
     all: () => ["entities"] as const,
     list: (filters?: EntityFilters) =>
       ["entities", "list", filters ?? {}] as const,
     detail: (id: string) => ["entities", "detail", id] as const,
-  },
-  vocabularies: {
-    all: () => ["vocabularies"] as const,
-    list: (filters?: VocabularyFilters) =>
-      ["vocabularies", "list", filters ?? {}] as const,
+    trackers: (id: string) => ["entities", "trackers", id] as const,
   },
   observations: {
     all: () => ["observations"] as const,
     list: (filters?: ObservationFilters) =>
       ["observations", "list", filters ?? {}] as const,
   },
-  edges: {
-    all: () => ["edges"] as const,
+  relationships: {
+    all: () => ["relationships"] as const,
     list: (entityId?: string) =>
-      ["edges", "list", entityId ?? "all"] as const,
+      ["relationships", "list", entityId ?? "all"] as const,
   },
 };

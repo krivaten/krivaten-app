@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { useVocabularies } from "@/hooks/useVocabularies";
+import { useEntityTypes } from "@/hooks/useEntityTypes";
 import type { Entity, EntityCreate } from "@/types/entity";
 
 interface Props {
@@ -28,7 +28,7 @@ interface Props {
 }
 
 export function EntityForm({ open, onOpenChange, onSubmit, initialTypeCode, entity }: Props) {
-  const { vocabularies: entityTypes } = useVocabularies({ type: "entity_type" });
+  const { entityTypes } = useEntityTypes();
   const [name, setName] = useState("");
   const [typeId, setTypeId] = useState("");
   const [description, setDescription] = useState("");

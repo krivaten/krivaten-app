@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -6,7 +6,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -17,40 +16,50 @@ import {
 } from "@/components/ui/select";
 import { Combobox } from "@/components/ui/combobox";
 import { toast } from "sonner";
-import { api } from "@/lib/api";
 import { useEntities } from "@/hooks/useEntities";
-import { useVocabularies } from "@/hooks/useVocabularies";
+import { useTrackers, useTracker } from "@/hooks/useTrackers";
+import { TrackerFieldInput } from "./TrackerFieldInput";
 import type { ObservationCreate } from "@/types/observation";
 
 interface BatchRow {
-  subjectId: string;
-  variableId: string;
-  value: string;
-  unitId: string;
+  entityId: string;
+  fieldValues: Record<string, unknown>;
 }
 
 function emptyRow(): BatchRow {
-  return { subjectId: "", variableId: "", value: "", unitId: "" };
+  return { entityId: "", fieldValues: {} };
 }
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  onBatchSubmit: (observations: ObservationCreate[]) => Promise<unknown>;
 }
 
-export function BatchObservationForm({ open, onOpenChange, onSuccess }: Props) {
+export function BatchObservationForm({ open, onOpenChange, onSuccess, onBatchSubmit }: Props) {
   const { entities } = useEntities();
-  const { vocabularies: variables } = useVocabularies({ type: "variable" });
-  const { vocabularies: units } = useVocabularies({ type: "unit" });
+  const { trackers } = useTrackers();
+  const [trackerId, setTrackerId] = useState("");
   const [rows, setRows] = useState<BatchRow[]>([emptyRow()]);
   const [loading, setLoading] = useState(false);
+
+  const { tracker: selectedTracker } = useTracker(trackerId);
+
+  // Reset rows when tracker changes
+  useEffect(() => {
+    setRows([emptyRow()]);
+  }, [trackerId]);
 
   const entityOptions = entities.map((e) => ({
     value: e.id,
     label: e.name,
     description: e.entity_type?.name,
   }));
+
+  const sortedFields = (selectedTracker?.fields ?? []).sort(
+    (a, b) => a.position - b.position,
+  );
 
   function addRow() {
     setRows((prev) => [...prev, emptyRow()]);
@@ -60,16 +69,26 @@ export function BatchObservationForm({ open, onOpenChange, onSuccess }: Props) {
     setRows((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function updateRow(index: number, field: keyof BatchRow, value: string) {
+  function updateRowEntity(index: number, entityId: string) {
     setRows((prev) =>
-      prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
+      prev.map((row, i) => (i === index ? { ...row, entityId } : row)),
+    );
+  }
+
+  function updateRowField(index: number, fieldCode: string, value: unknown) {
+    setRows((prev) =>
+      prev.map((row, i) =>
+        i === index
+          ? { ...row, fieldValues: { ...row.fieldValues, [fieldCode]: value } }
+          : row,
+      ),
     );
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    const validRows = rows.filter((r) => r.subjectId && r.variableId);
+    const validRows = rows.filter((r) => r.entityId);
     if (validRows.length === 0) {
       toast.error("Add at least one complete row");
       return;
@@ -78,30 +97,30 @@ export function BatchObservationForm({ open, onOpenChange, onSuccess }: Props) {
     setLoading(true);
     try {
       const observations: ObservationCreate[] = validRows.map((row) => {
-        const obs: ObservationCreate = {
-          subject_id: row.subjectId,
-          variable_id: row.variableId,
-        };
-
-        const numValue = Number(row.value);
-        if (row.value && !isNaN(numValue)) {
-          obs.value_numeric = numValue;
-        } else if (row.value) {
-          obs.value_text = row.value;
+        const cleanValues: Record<string, unknown> = {};
+        for (const [key, val] of Object.entries(row.fieldValues)) {
+          if (val !== undefined && val !== null && val !== "") {
+            cleanValues[key] = val;
+          }
         }
-
-        if (row.unitId) obs.unit_id = row.unitId;
-
-        return obs;
+        return {
+          entity_id: row.entityId,
+          tracker_id: trackerId,
+          field_values: cleanValues,
+        };
       });
 
-      await api.post("/api/v1/observations/batch", { observations });
-      toast.success(`${observations.length} observation${observations.length !== 1 ? "s" : ""} logged!`);
+      await onBatchSubmit(observations);
+      toast.success(
+        `${observations.length} observation${observations.length !== 1 ? "s" : ""} logged!`,
+      );
       setRows([emptyRow()]);
       onSuccess();
       onOpenChange(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to log observations");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to log observations",
+      );
     } finally {
       setLoading(false);
     }
@@ -109,82 +128,83 @@ export function BatchObservationForm({ open, onOpenChange, onSuccess }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Batch Log Observations</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-3">
-            {rows.map((row, i) => (
-              <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto_auto] gap-2 items-end">
-                {i === 0 && (
-                  <>
-                    <Label className="col-span-1 text-xs">Subject</Label>
-                    <Label className="col-span-1 text-xs">Variable</Label>
-                    <Label className="col-span-1 text-xs">Value</Label>
-                    <span />
-                    <span />
-                  </>
-                )}
-                <Combobox
-                  options={entityOptions}
-                  value={row.subjectId}
-                  onValueChange={(v) => updateRow(i, "subjectId", v)}
-                  placeholder="Entity..."
-                  searchPlaceholder="Search..."
-                  emptyMessage="None found."
-                />
-                <Select value={row.variableId} onValueChange={(v) => updateRow(i, "variableId", v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Variable..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {variables.map((v) => (
-                      <SelectItem key={v.id} value={v.id}>
-                        {v.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input
-                  value={row.value}
-                  onChange={(e) => updateRow(i, "value", e.target.value)}
-                  placeholder="Value..."
-                />
-                <Select value={row.unitId} onValueChange={(v) => updateRow(i, "unitId", v)}>
-                  <SelectTrigger className="w-[100px]">
-                    <SelectValue placeholder="Unit" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {units.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  className="text-muted-foreground hover:text-destructive"
-                  onClick={() => removeRow(i)}
-                  disabled={rows.length === 1}
-                >
-                  Remove
-                </Button>
-              </div>
-            ))}
+          <div className="space-y-2">
+            <Label>Tracker (applies to all rows)</Label>
+            <Select value={trackerId} onValueChange={setTrackerId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select tracker..." />
+              </SelectTrigger>
+              <SelectContent>
+                {trackers.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <Button type="button" variant="outline" size="sm" onClick={addRow}>
-            Add Row
-          </Button>
+
+          {trackerId && (
+            <div className="space-y-4">
+              {rows.map((row, i) => (
+                <div key={i} className="rounded-lg border p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">
+                      Row {i + 1}
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => removeRow(i)}
+                      disabled={rows.length === 1}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                  <Combobox
+                    options={entityOptions}
+                    value={row.entityId}
+                    onValueChange={(v) => updateRowEntity(i, v)}
+                    placeholder="Entity..."
+                    searchPlaceholder="Search..."
+                    emptyMessage="None found."
+                  />
+                  {sortedFields.map((field) => (
+                    <TrackerFieldInput
+                      key={field.id}
+                      field={field}
+                      value={row.fieldValues[field.code]}
+                      onChange={(val) => updateRowField(i, field.code, val)}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {trackerId && (
+            <Button type="button" variant="outline" size="sm" onClick={addRow}>
+              Add Row
+            </Button>
+          )}
+
           <Button
             type="submit"
-            disabled={loading || rows.every((r) => !r.subjectId || !r.variableId)}
+            disabled={
+              loading || !trackerId || rows.every((r) => !r.entityId)
+            }
             className="w-full"
           >
-            {loading ? "Logging..." : `Submit ${rows.filter((r) => r.subjectId && r.variableId).length} Observation${rows.filter((r) => r.subjectId && r.variableId).length !== 1 ? "s" : ""}`}
+            {loading
+              ? "Logging..."
+              : `Submit ${rows.filter((r) => r.entityId).length} Observation${rows.filter((r) => r.entityId).length !== 1 ? "s" : ""}`}
           </Button>
         </form>
       </DialogContent>

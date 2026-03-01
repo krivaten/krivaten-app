@@ -18,28 +18,31 @@ import {
 import { Combobox } from "@/components/ui/combobox";
 import { toast } from "sonner";
 import { useEntities } from "@/hooks/useEntities";
-import { useVocabularies } from "@/hooks/useVocabularies";
+import type { RelationshipCreate } from "@/types/relationship";
 
-interface EdgeFormData {
-  source_id: string;
-  target_id: string;
-  edge_type: string;
-  label?: string;
-}
+const COMMON_TYPES = [
+  { value: "located_in", label: "Located In" },
+  { value: "part_of", label: "Part Of" },
+  { value: "parent_of", label: "Parent Of" },
+  { value: "manages", label: "Manages" },
+  { value: "uses", label: "Uses" },
+  { value: "produces", label: "Produces" },
+  { value: "owns", label: "Owns" },
+  { value: "depends_on", label: "Depends On" },
+];
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (edge: EdgeFormData) => Promise<unknown>;
+  onSubmit: (rel: RelationshipCreate) => Promise<unknown>;
   sourceEntityId: string;
   sourceEntityName: string;
 }
 
-export function EdgeForm({ open, onOpenChange, onSubmit, sourceEntityId, sourceEntityName }: Props) {
+export function RelationshipForm({ open, onOpenChange, onSubmit, sourceEntityId, sourceEntityName }: Props) {
   const { entities } = useEntities();
-  const { vocabularies: edgeTypes } = useVocabularies({ type: "edge_type" });
   const [targetId, setTargetId] = useState("");
-  const [edgeTypeCode, setEdgeTypeCode] = useState("");
+  const [type, setType] = useState("");
   const [label, setLabel] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -53,19 +56,19 @@ export function EdgeForm({ open, onOpenChange, onSubmit, sourceEntityId, sourceE
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!targetId || !edgeTypeCode) return;
+    if (!targetId || !type) return;
 
     setLoading(true);
     try {
       await onSubmit({
         source_id: sourceEntityId,
         target_id: targetId,
-        edge_type: edgeTypeCode,
+        type,
         label: label.trim() || undefined,
       });
       toast.success("Connection created!");
       setTargetId("");
-      setEdgeTypeCode("");
+      setType("");
       setLabel("");
       onOpenChange(false);
     } catch (err) {
@@ -87,15 +90,15 @@ export function EdgeForm({ open, onOpenChange, onSubmit, sourceEntityId, sourceE
             <Input value={sourceEntityName} disabled />
           </div>
           <div className="space-y-2">
-            <Label>Edge Type</Label>
-            <Select value={edgeTypeCode} onValueChange={setEdgeTypeCode}>
+            <Label>Relationship Type</Label>
+            <Select value={type} onValueChange={setType}>
               <SelectTrigger>
                 <SelectValue placeholder="Select type..." />
               </SelectTrigger>
               <SelectContent>
-                {edgeTypes.map((t) => (
-                  <SelectItem key={t.id} value={t.code}>
-                    {t.name}
+                {COMMON_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -113,15 +116,15 @@ export function EdgeForm({ open, onOpenChange, onSubmit, sourceEntityId, sourceE
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="edge-label">Label (optional)</Label>
+            <Label htmlFor="rel-label">Label (optional)</Label>
             <Input
-              id="edge-label"
+              id="rel-label"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="e.g. primary, backup"
             />
           </div>
-          <Button type="submit" disabled={loading || !targetId || !edgeTypeCode} className="w-full">
+          <Button type="submit" disabled={loading || !targetId || !type} className="w-full">
             {loading ? "Creating..." : "Create Connection"}
           </Button>
         </form>

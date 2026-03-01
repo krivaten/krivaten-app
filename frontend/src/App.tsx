@@ -15,7 +15,6 @@ const ProfileEdit = lazy(() => import("./pages/profile/Edit"));
 const Entities = lazy(() => import("./pages/Entities"));
 const EntityDetail = lazy(() => import("./pages/EntityDetail"));
 const Observations = lazy(() => import("./pages/Observations"));
-const Vocabularies = lazy(() => import("./pages/Vocabularies"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,7 +49,6 @@ function App() {
               <Route path="/entities" element={<Entities />} />
               <Route path="/entities/:id" element={<EntityDetail />} />
               <Route path="/observations" element={<Observations />} />
-              <Route path="/vocabularies" element={<Vocabularies />} />
               <Route path="/profile" element={<ProfileEdit />} />
             </Route>
           </Routes>

@@ -22,10 +22,10 @@ export function TenantOnboarding({ onCreated, createTenant }: Props) {
     setLoading(true);
     try {
       await createTenant(name.trim());
-      toast.success("Workspace created!");
+      toast.success("Space created!");
       onCreated();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create workspace");
+      toast.error(err instanceof Error ? err.message : "Failed to create space");
     } finally {
       setLoading(false);
     }
@@ -35,18 +35,18 @@ export function TenantOnboarding({ onCreated, createTenant }: Props) {
     <div className="max-w-md mx-auto mt-12">
       <Card>
         <CardHeader>
-          <CardTitle>Create Your Workspace</CardTitle>
+          <CardTitle>Create Your Space</CardTitle>
           <CardDescription>
-            Set up a workspace to start tracking observations,
+            Set up a space to start tracking observations,
             entities, and relationships.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleCreate} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="workspace-name">Workspace Name</Label>
+              <Label htmlFor="space-name">Space Name</Label>
               <Input
-                id="workspace-name"
+                id="space-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. My Research Lab"
@@ -54,7 +54,7 @@ export function TenantOnboarding({ onCreated, createTenant }: Props) {
               />
             </div>
             <Button type="submit" disabled={loading || !name.trim()} className="w-full">
-              {loading ? "Creating..." : "Create Workspace"}
+              {loading ? "Creating..." : "Create Space"}
             </Button>
           </form>
         </CardContent>

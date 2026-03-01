@@ -24,7 +24,6 @@ export function AuthenticatedLayout() {
     { to: "/", label: "Home" },
     { to: "/entities", label: "Entities" },
     { to: "/observations", label: "Observations" },
-    { to: "/vocabularies", label: "Vocabularies" },
     { to: "/profile", label: "Profile" },
   ];
 

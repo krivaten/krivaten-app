@@ -1,4 +1,4 @@
-import type { Vocabulary } from "./vocabulary";
+import type { EntityType } from "./entityType";
 
 export interface Entity {
   id: string;
@@ -14,7 +14,7 @@ export interface Entity {
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  entity_type?: Vocabulary;
+  entity_type?: EntityType;
 }
 
 export interface EntityCreate {
