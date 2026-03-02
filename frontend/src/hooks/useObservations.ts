@@ -11,8 +11,8 @@ import type {
 } from "@/types/observation";
 
 interface ObservationFilters {
-  subject_id?: string;
-  variable?: string;
+  entity_id?: string;
+  tracker?: string;
   from?: string;
   to?: string;
   page?: number;
@@ -27,12 +27,13 @@ export function useObservations(filters?: ObservationFilters) {
     queryKey: queryKeys.observations.list(filters),
     queryFn: () => {
       const params = new URLSearchParams();
-      if (filters?.subject_id) params.set("subject_id", filters.subject_id);
-      if (filters?.variable) params.set("variable", filters.variable);
+      if (filters?.entity_id) params.set("entity_id", filters.entity_id);
+      if (filters?.tracker) params.set("tracker", filters.tracker);
       if (filters?.from) params.set("from", filters.from);
       if (filters?.to) params.set("to", filters.to);
       if (filters?.page) params.set("page", String(filters.page));
-      if (filters?.per_page) params.set("per_page", String(filters.per_page));
+      if (filters?.per_page)
+        params.set("per_page", String(filters.per_page));
       const qs = params.toString();
       return api.get<PaginatedResponse<Observation>>(
         `/api/v1/observations${qs ? `?${qs}` : ""}`,
@@ -47,6 +48,16 @@ export function useObservations(filters?: ObservationFilters) {
   const createObservationMutation = useMutation({
     mutationFn: (observation: ObservationCreate) =>
       api.post<Observation>("/api/v1/observations", observation),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.observations.all(),
+      });
+    },
+  });
+
+  const batchCreateMutation = useMutation({
+    mutationFn: (observations: ObservationCreate[]) =>
+      api.post<Observation[]>("/api/v1/observations/batch", { observations }),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.observations.all(),
@@ -69,6 +80,7 @@ export function useObservations(filters?: ObservationFilters) {
     state,
     error: query.error?.message ?? null,
     createObservation: createObservationMutation.mutateAsync,
+    batchCreateObservations: batchCreateMutation.mutateAsync,
     deleteObservation: deleteObservationMutation.mutateAsync,
     refetch: query.refetch,
   };

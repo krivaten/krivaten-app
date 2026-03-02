@@ -5,9 +5,8 @@ import { cleanupAllData } from "../helpers/cleanup";
 import {
   setupUserWithTenant,
   createEntityForUser,
-  createEdgeForUser,
+  createRelationshipForUser,
   createObservationForUser,
-  getSystemVocabId,
   type TestUser,
 } from "../helpers/fixtures";
 
@@ -16,17 +15,17 @@ describe("RLS Isolation and Regression", () => {
   let userB: TestUser;
   let headersA: Record<string, string>;
   let headersB: Record<string, string>;
-  let entityA: Entity;
+  let entityA: { id: string; [key: string]: unknown };
 
   beforeEach(async () => {
     await cleanupAllData();
 
     // Set up two users in separate tenants
-    const setupA = await setupUserWithTenant("rlsA", "Workspace A");
+    const setupA = await setupUserWithTenant("rlsA", "Space A");
     userA = setupA.user;
     headersA = authHeaders(userA.accessToken);
 
-    const setupB = await setupUserWithTenant("rlsB", "Workspace B");
+    const setupB = await setupUserWithTenant("rlsB", "Space B");
     userB = setupB.user;
     headersB = authHeaders(userB.accessToken);
 
@@ -36,11 +35,10 @@ describe("RLS Isolation and Regression", () => {
       name: "Alice Private",
     });
 
-    const varId = await getSystemVocabId(userA, "variable", "note");
     await createObservationForUser(userA, {
-      subject_id: entityA.id,
-      variable_id: varId,
-      value_text: "Private observation",
+      entity_id: entityA.id,
+      tracker: "mood",
+      field_values: { mood: "good" },
     });
   });
 
@@ -52,18 +50,18 @@ describe("RLS Isolation and Regression", () => {
       expect(body).toHaveLength(0);
     });
 
-    it("User B cannot see User A's edges", async () => {
+    it("User B cannot see User A's relationships", async () => {
       const entityA2 = await createEntityForUser(userA, {
         entity_type: "person",
         name: "Alice Friend",
       });
-      await createEdgeForUser(userA, {
+      await createRelationshipForUser(userA, {
         source_id: entityA.id,
         target_id: entityA2.id,
-        edge_type: "manages",
+        type: "manages",
       });
 
-      const res = await appGet("/api/v1/edges?entity_id=" + entityA.id, headersB);
+      const res = await appGet("/api/v1/relationships?entity_id=" + entityA.id, headersB);
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body).toHaveLength(0);
@@ -76,38 +74,26 @@ describe("RLS Isolation and Regression", () => {
       expect(body.data).toHaveLength(0);
     });
 
-    it("User B cannot see User A's tenant-specific vocabularies", async () => {
-      // Create tenant-specific vocab for User A
-      await appPost(
-        "/api/v1/vocabularies",
-        {
-          vocabulary_type: "variable",
-          code: "secret_var",
-          name: "Secret Variable",
-        },
-        headersA,
-      );
-
-      // User B should only see system vocabs, not A's tenant vocab
-      const res = await appGet("/api/v1/vocabularies?type=variable", headersB);
-      const body = await res.json();
-      const secretVocab = body.find((v: { code: string }) => v.code === "secret_var");
-      expect(secretVocab).toBeUndefined();
+    it("Both users CAN see system entity types", async () => {
+      const res = await appGet("/api/v1/entity-types", headersB);
+      expect(res.status).toBe(200);
+      const body: Array<{ is_system: boolean }> = await res.json();
+      expect(body.length).toBe(8);
+      expect(body.every((t) => t.is_system === true)).toBe(true);
     });
 
-    it("User B CAN see system vocabularies", async () => {
-      const res = await appGet("/api/v1/vocabularies?type=entity_type", headersB);
+    it("Both users CAN see system trackers", async () => {
+      const res = await appGet("/api/v1/trackers", headersB);
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.length).toBe(8);
-      expect(body.every((v: { is_system: boolean }) => v.is_system === true)).toBe(true);
+      expect(body.length).toBe(18);
     });
 
     it("User B's tenant is isolated from User A's", async () => {
       const res = await appGet("/api/v1/tenants/mine", headersB);
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.name).toBe("Workspace B");
+      expect(body.name).toBe("Space B");
     });
   });
 

@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useObservations } from "@/hooks/useObservations";
-import { useVocabularies } from "@/hooks/useVocabularies";
+import { useTrackers } from "@/hooks/useTrackers";
 import { ObservationForm } from "@/components/observations/ObservationForm";
 import { BatchObservationForm } from "@/components/observations/BatchObservationForm";
 import { Timeline } from "@/components/observations/Timeline";
@@ -19,52 +19,62 @@ export default function Observations() {
   const { user } = useAuth();
   const [formOpen, setFormOpen] = useState(false);
   const [batchOpen, setBatchOpen] = useState(false);
-  const [variable, setVariable] = useState("");
+  const [tracker, setTracker] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [page, setPage] = useState(1);
 
-  const { vocabularies: variables } = useVocabularies({ type: "variable" });
+  const { trackers } = useTrackers();
 
   const filters = useMemo(
     () => ({
-      variable: variable || undefined,
+      tracker: tracker || undefined,
       from: fromDate || undefined,
       to: toDate || undefined,
       page,
       per_page: 30,
     }),
-    [variable, fromDate, toDate, page],
+    [tracker, fromDate, toDate, page],
   );
 
-  const { observations, count, state, createObservation, deleteObservation, refetch } = useObservations(filters);
+  const {
+    observations,
+    count,
+    state,
+    createObservation,
+    batchCreateObservations,
+    deleteObservation,
+    refetch,
+  } = useObservations(filters);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Observations</h1>
+        <h1 className="text-2xl font-bold">Metrics</h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setBatchOpen(true)}>Batch Log</Button>
+          <Button variant="outline" onClick={() => setBatchOpen(true)}>
+            Batch Log
+          </Button>
           <Button onClick={() => setFormOpen(true)}>Log Observation</Button>
         </div>
       </div>
 
       <div className="flex flex-wrap gap-3">
         <Select
-          value={variable}
+          value={tracker}
           onValueChange={(v) => {
-            setVariable(v === "all" ? "" : v);
+            setTracker(v === "all" ? "" : v);
             setPage(1);
           }}
         >
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Variable..." />
+            <SelectValue placeholder="Tracker..." />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Variables</SelectItem>
-            {variables.map((v) => (
-              <SelectItem key={v.id} value={v.code}>
-                {v.name}
+            <SelectItem value="all">All Trackers</SelectItem>
+            {trackers.map((t) => (
+              <SelectItem key={t.id} value={t.code}>
+                {t.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -89,12 +99,12 @@ export default function Observations() {
           className="w-[160px]"
           placeholder="To..."
         />
-        {(variable || fromDate || toDate) && (
+        {(tracker || fromDate || toDate) && (
           <Button
             variant="ghost"
             size="sm"
             onClick={() => {
-              setVariable("");
+              setTracker("");
               setFromDate("");
               setToDate("");
               setPage(1);
@@ -106,7 +116,9 @@ export default function Observations() {
       </div>
 
       {count > 0 && (
-        <p className="text-sm text-muted-foreground">{count} observation{count !== 1 ? "s" : ""}</p>
+        <p className="text-sm text-muted-foreground">
+          {count} observation{count !== 1 ? "s" : ""}
+        </p>
       )}
 
       <Timeline
@@ -127,7 +139,8 @@ export default function Observations() {
       <BatchObservationForm
         open={batchOpen}
         onOpenChange={setBatchOpen}
-        onSuccess={refetch}
+        onSuccess={() => { refetch(); }}
+        onBatchSubmit={batchCreateObservations}
       />
     </div>
   );

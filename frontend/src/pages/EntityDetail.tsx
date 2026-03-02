@@ -7,17 +7,20 @@ import { getQuerySingleState } from "@/lib/queryState";
 import { queryKeys } from "@/lib/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 import { useObservations } from "@/hooks/useObservations";
-import { useEdges } from "@/hooks/useEdges";
+import { useRelationships } from "@/hooks/useRelationships";
+import { useEntityTrackers } from "@/hooks/useEntityTrackers";
 import { EntityForm } from "@/components/entities/EntityForm";
-import { EdgeForm } from "@/components/edges/EdgeForm";
+import { RelationshipForm } from "@/components/relationships/RelationshipForm";
 import { ObservationForm } from "@/components/observations/ObservationForm";
 import { Timeline } from "@/components/observations/Timeline";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import type { Entity, EntityCreate } from "@/types/entity";
-import type { Edge } from "@/types/edge";
+import type { Relationship } from "@/types/relationship";
 
 export default function EntityDetail() {
   const { id } = useParams<{ id: string }>();
@@ -25,8 +28,8 @@ export default function EntityDetail() {
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [edgeFormOpen, setEdgeFormOpen] = useState(false);
-  const [editingEdge, setEditingEdge] = useState<Edge | null>(null);
+  const [relFormOpen, setRelFormOpen] = useState(false);
+  const [editingRelationship, setEditingRelationship] = useState<Relationship | null>(null);
   const [page, setPage] = useState(1);
 
   const entityQuery = useQuery({
@@ -55,9 +58,14 @@ export default function EntityDetail() {
     state: obsState,
     createObservation,
     deleteObservation,
-  } = useObservations(id ? { subject_id: id, page, per_page: 20 } : undefined);
+  } = useObservations(id ? { entity_id: id, page, per_page: 20 } : undefined);
 
-  const { edges, createEdge, updateEdge, deleteEdge } = useEdges(id);
+  const { relationships, createRelationship, updateRelationship, deleteRelationship } =
+    useRelationships(id);
+
+  const { trackers: entityTrackers, updateTrackers } = useEntityTrackers(
+    id ?? "",
+  );
 
   if (entityState === State.PENDING) {
     return (
@@ -81,14 +89,24 @@ export default function EntityDetail() {
       ? entity.attributes
       : null;
 
-  async function handleDeleteEdge(edgeId: string) {
+  async function handleDeleteRelationship(relId: string) {
     if (!confirm("Remove this connection?")) return;
     try {
-      await deleteEdge(edgeId);
+      await deleteRelationship(relId);
       toast.success("Connection removed");
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Failed to remove connection",
+      );
+    }
+  }
+
+  async function handleToggleTracker(trackerId: string, isEnabled: boolean) {
+    try {
+      await updateTrackers([{ tracker_id: trackerId, is_enabled: isEnabled }]);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to update tracker",
       );
     }
   }
@@ -138,45 +156,71 @@ export default function EntityDetail() {
         </Card>
       )}
 
+      {entityTrackers.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Trackers</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {entityTrackers.map((et) => (
+                <div
+                  key={et.tracker.id}
+                  className="flex items-center justify-between"
+                >
+                  <Label className="text-sm">{et.tracker.name}</Label>
+                  <Switch
+                    checked={et.is_enabled}
+                    onCheckedChange={(checked) =>
+                      handleToggleTracker(et.tracker.id, checked)
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">
               Connections{" "}
-              {edges.length > 0 && (
+              {relationships.length > 0 && (
                 <span className="text-muted-foreground font-normal">
-                  ({edges.length})
+                  ({relationships.length})
                 </span>
               )}
             </CardTitle>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setEdgeFormOpen(true)}
+              onClick={() => setRelFormOpen(true)}
             >
               Add Connection
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          {edges.length === 0 ? (
+          {relationships.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No connections yet.
             </p>
           ) : (
             <div className="space-y-2">
-              {edges.map((edge) => {
-                const isSource = edge.source_id === id;
-                const related = isSource ? edge.target : edge.source;
+              {relationships.map((rel) => {
+                const isSource = rel.source_id === id;
+                const related = isSource ? rel.target : rel.source;
                 const direction = isSource ? "\u2192" : "\u2190";
                 return (
                   <div
-                    key={edge.id}
+                    key={rel.id}
                     className="flex items-center justify-between text-sm"
                   >
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-xs">
-                        {edge.edge_type}
+                        {rel.type}
                       </Badge>
                       <span>{direction}</span>
                       {related ? (
@@ -189,9 +233,9 @@ export default function EntityDetail() {
                       ) : (
                         <span className="text-muted-foreground">Unknown</span>
                       )}
-                      {edge.label && (
+                      {rel.label && (
                         <span className="text-xs text-muted-foreground">
-                          ({edge.label})
+                          ({rel.label})
                         </span>
                       )}
                     </div>
@@ -200,7 +244,7 @@ export default function EntityDetail() {
                         variant="ghost"
                         size="xs"
                         className="text-xs text-muted-foreground"
-                        onClick={() => setEditingEdge(edge)}
+                        onClick={() => setEditingRelationship(rel)}
                       >
                         Edit
                       </Button>
@@ -208,7 +252,7 @@ export default function EntityDetail() {
                         variant="ghost"
                         size="xs"
                         className="text-xs text-muted-foreground hover:text-destructive"
-                        onClick={() => handleDeleteEdge(edge.id)}
+                        onClick={() => handleDeleteRelationship(rel.id)}
                       >
                         Remove
                       </Button>
@@ -247,31 +291,31 @@ export default function EntityDetail() {
         }}
       />
 
-      <EdgeForm
-        open={edgeFormOpen}
-        onOpenChange={setEdgeFormOpen}
-        onSubmit={createEdge}
+      <RelationshipForm
+        open={relFormOpen}
+        onOpenChange={setRelFormOpen}
+        onSubmit={createRelationship}
         sourceEntityId={id!}
         sourceEntityName={entity.name}
       />
 
-      {editingEdge && (
-        <EdgeForm
-          open={!!editingEdge}
-          onOpenChange={(open) => { if (!open) setEditingEdge(null); }}
+      {editingRelationship && (
+        <RelationshipForm
+          open={!!editingRelationship}
+          onOpenChange={(open) => { if (!open) setEditingRelationship(null); }}
           onSubmit={async (data) => {
-            await updateEdge({
-              id: editingEdge.id,
+            await updateRelationship({
+              id: editingRelationship.id,
               updates: {
                 target_id: data.target_id,
-                edge_type: data.edge_type,
+                type: data.type,
                 label: data.label,
               },
             });
           }}
           sourceEntityId={id!}
           sourceEntityName={entity.name}
-          edge={editingEdge}
+          relationship={editingRelationship}
         />
       )}
 
@@ -281,7 +325,7 @@ export default function EntityDetail() {
         onSubmit={async (obs) => {
           return createObservation(obs);
         }}
-        defaultSubjectId={id}
+        defaultEntityId={id}
       />
     </div>
   );

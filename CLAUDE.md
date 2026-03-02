@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Krivaten is a Universal Observation Database — a vocabulary-driven platform for tracking entities (things), edges (relationships), and observations (measurements) across any domain.
+Krivaten is a Universal Observation Database — a tracker-based platform for tracking entities (things), relationships (connections), and observations (structured measurements) across any domain.
 
 - **Frontend**: Vite + React + TypeScript + React Router + TanStack Query v5 + Tailwind CSS v4 + shadcn/ui → Cloudflare Pages
 - **Backend**: Hono (TypeScript) on Cloudflare Workers
@@ -55,18 +55,41 @@ If `db push` fails with "Remote migration versions not found in local", the migr
 
 ### Tables
 
-- **tenants** — Multi-tenant workspaces (id, name, slug, settings JSONB)
+- **tenants** — Multi-tenant spaces (id, name, slug, settings JSONB)
 - **tenant_members** — Join table linking users to tenants (user_id, tenant_id, role, is_active). Partial unique index enforces one active membership per user. Users can belong to multiple tenants but only one is active at a time
 - **profiles** — User profiles (auto-created on signup via trigger, or lazily via `ensureProfile`). No tenant_id — tenant association lives in `tenant_members`
-- **vocabularies** — Controlled terms: entity types, variables, units, edge types, methods, quality flags. System vocabs (tenant_id IS NULL) are shared; tenant vocabs extend them
-- **entities** — Things being tracked. entity_type_id FK to vocabularies. Attributes JSONB, PostGIS location, taxonomy_path, soft-delete via is_active
-- **edges** — Directed relationships between entities. edge_type (denormalized text) + edge_type_id FK. Temporal validity (valid_from/valid_to)
-- **observations** — Immutable measurements. Polymorphic values: value_numeric, value_text, value_boolean, value_json. subject_id FK to entities, variable_id/unit_id/method_id FKs to vocabularies
+- **entity_types** — System-defined entity categories (person, plant, animal, location, project, equipment, supply, process). Read-only, shared across all tenants
+- **trackers** — Observation templates with structured fields (mood, growth, health, etc.). System-defined, shared across all tenants
+- **tracker_fields** — Field definitions for each tracker (code, name, field_type, options, is_required, position). Field types: text, number, boolean, single_select, multi_select, textarea, datetime
+- **entity_type_trackers** — Default tracker assignments per entity type (e.g. person → mood, health, sleep, diet, behavior)
+- **entities** — Things being tracked. entity_type_id FK to entity_types. Attributes JSONB, PostGIS location, taxonomy_path, soft-delete via is_active
+- **entity_trackers** — Per-entity tracker overrides (enable/disable specific trackers for an individual entity)
+- **relationships** — Directed connections between entities. Plain text `type` field (located_in, manages, part_of, etc.). Temporal validity (valid_from/valid_to)
+- **observations** — Structured measurements. `field_values` JSONB stores tracker field data. entity_id FK to entities, tracker_id FK to trackers, observer_id FK to auth.users
 - **audit_log** — Action history per tenant
 
-### Entity Type System
+### Tracker-Based Observation Model
 
-Entity types are **vocabulary-driven** — no hardcoded CHECK constraint. The `entity_type_id` column is a FK to the vocabularies table where `vocabulary_type = 'entity_type'`. System seed data provides 8 default types (person, location, plant, animal, project, equipment, supply, process). New types are added by creating vocabulary entries — zero DDL.
+Observations use structured JSONB `field_values` keyed by tracker field codes. Each tracker defines its fields (with types, options, required flags). The API validates required fields on creation. Example:
+```json
+{
+  "entity_id": "uuid",
+  "tracker": "mood",
+  "field_values": { "mood": "good", "energy": "high", "notes": "Feeling great" }
+}
+```
+
+### Entity Type → Tracker Defaults
+
+Each entity type has default trackers assigned via `entity_type_trackers`:
+- person → behavior, diet, sleep, health, mood
+- plant → soil, health, growth, harvest
+- animal → health, diet, behavior, growth
+- location → weather, conditions
+- project → status, milestones
+- equipment → maintenance, condition
+- supply → inventory, usage
+- process → execution, quality
 
 ### RLS Design Notes
 
@@ -74,29 +97,35 @@ Entity types are **vocabulary-driven** — no hardcoded CHECK constraint. The `e
 - **`tenant_members` table**: Users can view own memberships (`user_id = auth.uid()`), view all memberships in their active tenant, create own memberships, and update own memberships.
 - **Profiles table**: SELECT policy uses `auth.uid() = id` directly (own profile) plus an EXISTS check on `tenant_members` (profiles of people in the same active tenant). Never subqueries back into profiles.
 - **Tenant creation**: The `POST /api/v1/tenants` route calls `ensureProfile`, generates a tenant UUID, inserts the tenant, creates a `tenant_members` row (admin, active), then fetches the tenant.
-- **Vocabularies**: System vocabs (tenant_id IS NULL) visible to all authenticated users. Tenant vocabs use `get_my_tenant_id()`.
-- **All other tables** (entities, edges, observations): RLS policies use `tenant_id = get_my_tenant_id()`.
+- **entity_types, trackers, tracker_fields**: Read-only, visible to all authenticated users (`auth.uid() IS NOT NULL`).
+- **entity_type_trackers**: Read-only, visible to all authenticated users.
+- **entity_trackers**: RLS checks entity ownership via EXISTS on entities table with `tenant_id = get_my_tenant_id()`.
+- **All tenant-scoped tables** (entities, relationships, observations): RLS policies use `tenant_id = get_my_tenant_id()`.
 
 ### RPC Functions
 
-- `get_related_entities(p_entity_id, p_max_depth, p_edge_types)` — Recursive CTE graph traversal
-- `get_time_series(p_entity_id, p_variable_code, p_from, p_to, p_limit)` — Time-series observations query
-- `search_taxonomy(p_path_prefix, p_limit)` — Taxonomy path prefix search
+- `get_related_entities(p_entity_id, p_max_depth, p_relationship_types)` — Recursive CTE graph traversal via relationships table
+- `search_taxonomy(p_path_prefix, p_limit)` — Taxonomy path prefix search joining entity_types
 
 ## API Endpoints
 
 All routes under `/api/v1/`:
 
 - `GET /api/v1/health` — Health check
-- `POST/GET/PUT /api/v1/tenants` — Workspace CRUD (`/mine` for current)
+- `POST/GET/PUT /api/v1/tenants` — Space CRUD (`/mine` for current)
 - `GET/PUT /api/v1/profiles/me` — Current user profile
-- `GET/POST/PUT/DELETE /api/v1/vocabularies` — Vocabulary CRUD (system vocabs are read-only)
+- `GET /api/v1/entity-types` — List entity types (optional `?code=` filter)
+- `GET /api/v1/entity-types/:id` — Entity type detail with default trackers
+- `GET /api/v1/trackers` — List trackers (optional `?entity_type=` filter)
+- `GET /api/v1/trackers/:id` — Tracker detail with fields
 - `GET/POST/PUT/DELETE /api/v1/entities` — Entity CRUD (DELETE = soft-delete)
-- `GET /api/v1/entities/:id/edges` — Entity's edges
-- `GET /api/v1/entities/:id/timeseries` — Entity time-series (RPC)
+- `GET /api/v1/entities/:id/trackers` — Entity's effective trackers (defaults + overrides)
+- `PUT /api/v1/entities/:id/trackers` — Upsert entity tracker overrides
+- `GET /api/v1/entities/:id/relationships` — Entity's relationships
 - `GET /api/v1/entities/:id/related` — Graph traversal (RPC)
-- `GET/POST/DELETE /api/v1/edges` — Edge CRUD
+- `GET/POST/DELETE /api/v1/relationships` — Relationship CRUD
 - `GET/POST/DELETE /api/v1/observations` — Observation CRUD with pagination
+- `GET /api/v1/observations/:id` — Single observation with entity/tracker joins
 - `POST /api/v1/observations/batch` — Batch create observations
 - `GET /api/v1/search/entities?q=` — Entity name search
 - `GET /api/v1/search/taxonomy?path=` — Taxonomy prefix search (RPC)
@@ -107,7 +136,7 @@ All routes under `/api/v1/`:
 
 ```bash
 supabase start        # Must be running (Docker required)
-pnpm test:workers     # 61 integration tests against local Supabase
+pnpm test:workers     # 72 integration tests against local Supabase
 ```
 
 ### Test Architecture
@@ -115,7 +144,7 @@ pnpm test:workers     # 61 integration tests against local Supabase
 - Tests use **real Supabase auth JWTs** (not mocks) — `adminClient.auth.admin.createUser()` + `signInWithPassword()` to get tokens that pass jose JWKS verification
 - Tests invoke the Hono app via `app.request(path, init, TEST_ENV)` — no HTTP server needed
 - Cleanup uses the **service role client** (bypasses RLS) in `beforeEach`/`afterEach`
-- Delete order matters due to FK constraints: audit_log → observations → edges → entities → vocabularies (non-system) → tenant_members → profiles → tenants → auth users
+- Delete order matters due to FK constraints: audit_log → observations → entity_trackers → relationships → entities → tenant_members → profiles → tenants → auth users
 
 ### Key Files
 
@@ -123,11 +152,11 @@ pnpm test:workers     # 61 integration tests against local Supabase
 - `workers/src/test/helpers/auth.ts` — `createTestUser()`, `authHeaders()`, `deleteTestUser()`
 - `workers/src/test/helpers/request.ts` — `appGet`, `appPost`, `appPut`, `appDelete` wrappers
 - `workers/src/test/helpers/cleanup.ts` — `cleanupAllData()` via service role
-- `workers/src/test/helpers/fixtures.ts` — `setupUserWithTenant()`, `getSystemVocabId()`, `createEntityForUser()`, `createObservationForUser()`, `createEdgeForUser()`
+- `workers/src/test/helpers/fixtures.ts` — `setupUserWithTenant()`, `getEntityTypeId()`, `getTrackerId()`, `createEntityForUser()`, `createObservationForUser()`, `createRelationshipForUser()`
 
-### Vocabulary Code Lookup Pattern
+### Entity Type / Tracker Code Lookup Pattern
 
-Tests use `getSystemVocabId(user, type, code)` to look up system vocabulary UUIDs by type and code. This avoids hardcoding UUIDs. Example: `const personTypeId = await getSystemVocabId(user, "entity_type", "person")`.
+Tests use `getEntityTypeId(user, code)` and `getTrackerId(user, code)` to look up system UUIDs by code. This avoids hardcoding UUIDs. Example: `const personTypeId = await getEntityTypeId(user, "person")`.
 
 ## Architecture Patterns
 
@@ -155,24 +184,20 @@ The `ApiClient` in `frontend/src/lib/api.ts` intercepts 401 responses in both `r
 
 The `ApiClient` in `frontend/src/lib/api.ts` reads the `{ detail }` field from error response bodies. Errors surface as `"<status>: <detail>"` (e.g., `"500: Could not find the table 'public.tenants'"`). Hooks that check status codes (like `useTenant` checking for `"404"`) match against `err.message.includes("404")`.
 
-### Vocabulary Codes as API Contract
+### Code Resolution in API
 
-The API accepts both vocabulary UUIDs and codes. For entities: `entity_type_id` (UUID) or `entity_type` (code string). For observations: `variable_id` (UUID) or `variable` (code string). The API resolves codes to UUIDs internally.
-
-### Polymorphic Observation Values
-
-Observations store values in typed columns: `value_numeric`, `value_text`, `value_boolean`, `value_json`. Only one is populated per observation. The frontend auto-detects type and renders accordingly.
+The API accepts both UUIDs and string codes. For entities: `entity_type_id` (UUID) or `entity_type` (code string, resolved via `entity_types` table). For observations: `tracker_id` (UUID) or `tracker` (code string, resolved via `trackers` table). The API resolves codes to UUIDs internally.
 
 ### TanStack Query Data Fetching
 
 All data-fetching hooks use TanStack Query v5 (`useQuery`/`useMutation`). The `QueryClientProvider` wraps the app inside `AuthProvider` in `App.tsx`.
 
-- **Query key factory** (`frontend/src/lib/queryKeys.ts`): Centralized key definitions — `queryKeys.entities.list(filters)`, `queryKeys.entities.detail(id)`, `queryKeys.entities.all()`, etc. Mutations invalidate the `.all()` prefix to refetch all related queries.
+- **Query key factory** (`frontend/src/lib/queryKeys.ts`): Centralized key definitions — `queryKeys.entities.list(filters)`, `queryKeys.entities.detail(id)`, `queryKeys.entities.trackers(id)`, `queryKeys.trackers.list(entityType)`, etc. Mutations invalidate the `.all()` prefix to refetch all related queries.
 - **State bridge** (`frontend/src/lib/queryState.ts`): Converts TanStack Query status to the app's `State` enum via `getQueryCollectionState()`, `getQuerySingleState()`, `getQueryPaginatedState()`. This preserves the existing component contract.
 - **Defaults**: `staleTime: 2min`, `gcTime: 5min`, `retry: 1`, `refetchOnWindowFocus: false`
 - **Auth gating**: All hooks use `enabled: !authLoading && !!session` to prevent queries before auth resolves
 - **Cache invalidation**: Mutations call `queryClient.invalidateQueries({ queryKey: queryKeys.<domain>.all() })` on success. Updates that return the new object use `setQueryData` for instant UI updates.
-- **Converted hooks**: `useProfile`, `useTenant`, `useVocabularies`, `useEntities`, `useEdges`, `useObservations`, plus `EntityDetail.tsx` inline fetch
+- **Hooks**: `useProfile`, `useTenant`, `useEntityTypes`, `useTrackers`, `useEntityTrackers`, `useEntities`, `useRelationships`, `useObservations`, plus `EntityDetail.tsx` inline fetch
 - **DevTools**: `ReactQueryDevtools` included (flower icon, bottom-right in dev)
 
 ### Frontend State Enum
@@ -184,6 +209,19 @@ Hooks return `State` from `frontend/src/lib/state.ts`. TanStack Query status is 
 - **Components** check `state === State.PENDING` for loading, `State.ERROR` for errors, `State.NONE` for empty states
 - **AuthContext stays boolean** — auth init is a binary gate, not a data-fetching concern
 - **Mutations keep local booleans** — submit buttons use local `saving` state, not the enum
+
+### Dynamic Observation Forms
+
+The `ObservationForm` renders tracker fields dynamically based on the selected tracker's field definitions. The `TrackerFieldInput` component maps `field_type` to the appropriate UI control:
+- `text` → Input
+- `number` → Input[type=number]
+- `boolean` → Checkbox
+- `single_select` → Select with options
+- `multi_select` → Multiple checkboxes
+- `textarea` → Textarea
+- `datetime` → Input[type=datetime-local]
+
+Required fields are validated client-side before submission.
 
 ### Vitest Configuration Pitfalls
 

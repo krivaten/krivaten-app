@@ -4,61 +4,67 @@ import { authMiddleware } from "../middleware/auth";
 import { createSupabaseClientWithAuth } from "../lib/supabase";
 import { requireTenantId } from "../lib/tenant";
 
-const edges = new Hono<{ Bindings: Env; Variables: Variables }>();
-edges.use("*", authMiddleware);
+const relationships = new Hono<{ Bindings: Env; Variables: Variables }>();
+relationships.use("*", authMiddleware);
 
-// GET /api/v1/edges — List edges with optional filters
-edges.get("/api/v1/edges", async (c) => {
+const RELATIONSHIP_SELECT =
+  "*, source:entities!source_id(id, name), target:entities!target_id(id, name)";
+
+// GET /api/v1/relationships — List relationships with optional entity filter
+relationships.get("/api/v1/relationships", async (c) => {
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
 
   let tenantId: string;
   try {
     tenantId = await requireTenantId(c);
   } catch {
-    return c.json({ detail: "You must belong to a workspace" }, 400);
+    return c.json({ detail: "You must belong to a space" }, 400);
   }
 
   let query = supabase
-    .from("edges")
-    .select("*, source:entities!source_id(id, name), target:entities!target_id(id, name)")
+    .from("relationships")
+    .select(RELATIONSHIP_SELECT)
     .eq("tenant_id", tenantId);
 
-  // Filter by entity (matches source_id OR target_id)
   const entityId = c.req.query("entity_id");
   if (entityId) {
     query = query.or(`source_id.eq.${entityId},target_id.eq.${entityId}`);
   }
 
-  const edgeType = c.req.query("edge_type");
-  if (edgeType) {
-    query = query.eq("edge_type", edgeType);
+  const type = c.req.query("type");
+  if (type) {
+    query = query.eq("type", type);
   }
 
-  const { data, error } = await query.order("created_at", { ascending: false });
+  const { data, error } = await query.order("created_at", {
+    ascending: false,
+  });
 
   if (error) {
-    return c.json({ detail: `Error fetching edges: ${error.message}` }, 500);
+    return c.json(
+      { detail: `Error fetching relationships: ${error.message}` },
+      500,
+    );
   }
 
   return c.json(data);
 });
 
-// POST /api/v1/edges — Create edge
-edges.post("/api/v1/edges", async (c) => {
+// POST /api/v1/relationships — Create relationship
+relationships.post("/api/v1/relationships", async (c) => {
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
 
   let tenantId: string;
   try {
     tenantId = await requireTenantId(c);
   } catch {
-    return c.json({ detail: "You must belong to a workspace" }, 400);
+    return c.json({ detail: "You must belong to a space" }, 400);
   }
 
   let body: {
     source_id: string;
     target_id: string;
-    edge_type: string;
-    edge_type_id?: string;
+    type: string;
     label?: string;
     weight?: number;
     properties?: Record<string, unknown>;
@@ -71,57 +77,47 @@ edges.post("/api/v1/edges", async (c) => {
     return c.json({ detail: "Invalid JSON body" }, 400);
   }
 
-  if (!body.source_id || !body.target_id || !body.edge_type) {
-    return c.json({ detail: "source_id, target_id, and edge_type are required" }, 400);
-  }
-
-  // Optionally resolve edge_type_id from vocabulary
-  let edgeTypeId = body.edge_type_id ?? null;
-  if (!edgeTypeId) {
-    const { data: vocab } = await supabase
-      .from("vocabularies")
-      .select("id")
-      .eq("vocabulary_type", "edge_type")
-      .eq("code", body.edge_type)
-      .single();
-    if (vocab) {
-      edgeTypeId = vocab.id;
-    }
+  if (!body.source_id || !body.target_id || !body.type) {
+    return c.json(
+      { detail: "source_id, target_id, and type are required" },
+      400,
+    );
   }
 
   const { data, error } = await supabase
-    .from("edges")
+    .from("relationships")
     .insert({
       tenant_id: tenantId,
       source_id: body.source_id,
       target_id: body.target_id,
-      edge_type: body.edge_type,
-      edge_type_id: edgeTypeId,
+      type: body.type,
       label: body.label ?? null,
       weight: body.weight ?? 1.0,
       properties: body.properties ?? {},
       valid_from: body.valid_from ?? null,
       valid_to: body.valid_to ?? null,
     })
-    .select("*, source:entities!source_id(id, name), target:entities!target_id(id, name)")
+    .select(RELATIONSHIP_SELECT)
     .single();
 
   if (error) {
-    return c.json({ detail: `Error creating edge: ${error.message}` }, 400);
+    return c.json(
+      { detail: `Error creating relationship: ${error.message}` },
+      400,
+    );
   }
 
   return c.json(data, 201);
 });
 
-// PUT /api/v1/edges/:id — Update edge
-edges.put("/api/v1/edges/:id", async (c) => {
+// PUT /api/v1/relationships/:id — Update relationship
+relationships.put("/api/v1/relationships/:id", async (c) => {
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
   const id = c.req.param("id");
 
   let body: {
     target_id?: string;
-    edge_type?: string;
-    edge_type_id?: string;
+    type?: string;
     label?: string;
     weight?: number;
     properties?: Record<string, unknown>;
@@ -136,7 +132,7 @@ edges.put("/api/v1/edges/:id", async (c) => {
 
   const updateData: Record<string, unknown> = {};
   if (body.target_id !== undefined) updateData.target_id = body.target_id;
-  if (body.edge_type !== undefined) updateData.edge_type = body.edge_type;
+  if (body.type !== undefined) updateData.type = body.type;
   if (body.label !== undefined) updateData.label = body.label;
   if (body.weight !== undefined) updateData.weight = body.weight;
   if (body.properties !== undefined) updateData.properties = body.properties;
@@ -147,52 +143,41 @@ edges.put("/api/v1/edges/:id", async (c) => {
     return c.json({ detail: "No fields to update" }, 400);
   }
 
-  // Resolve edge_type_id from vocabulary if edge_type changed
-  if (body.edge_type) {
-    let edgeTypeId = body.edge_type_id ?? null;
-    if (!edgeTypeId) {
-      const { data: vocab } = await supabase
-        .from("vocabularies")
-        .select("id")
-        .eq("vocabulary_type", "edge_type")
-        .eq("code", body.edge_type)
-        .single();
-      if (vocab) {
-        edgeTypeId = vocab.id;
-      }
-    }
-    updateData.edge_type_id = edgeTypeId;
-  }
-
   const { data, error } = await supabase
-    .from("edges")
+    .from("relationships")
     .update(updateData)
     .eq("id", id)
-    .select("*, source:entities!source_id(id, name), target:entities!target_id(id, name)")
+    .select(RELATIONSHIP_SELECT)
     .single();
 
   if (error) {
-    return c.json({ detail: `Error updating edge: ${error.message}` }, 400);
+    return c.json(
+      { detail: `Error updating relationship: ${error.message}` },
+      400,
+    );
   }
 
   return c.json(data);
 });
 
-// DELETE /api/v1/edges/:id — Hard delete edge
-edges.delete("/api/v1/edges/:id", async (c) => {
+// DELETE /api/v1/relationships/:id — Delete relationship
+relationships.delete("/api/v1/relationships/:id", async (c) => {
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
   const id = c.req.param("id");
 
   const { error } = await supabase
-    .from("edges")
+    .from("relationships")
     .delete()
     .eq("id", id);
 
   if (error) {
-    return c.json({ detail: `Error deleting edge: ${error.message}` }, 400);
+    return c.json(
+      { detail: `Error deleting relationship: ${error.message}` },
+      400,
+    );
   }
 
   return c.body(null, 204);
 });
 
-export default edges;
+export default relationships;

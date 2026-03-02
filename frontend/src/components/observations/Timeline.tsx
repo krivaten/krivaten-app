@@ -22,23 +22,20 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString();
 }
 
-function formatValue(obs: Observation): string {
-  if (obs.value_numeric !== null && obs.value_numeric !== undefined) {
-    const unitName = obs.unit?.name;
-    return unitName ? `${obs.value_numeric} ${unitName}` : String(obs.value_numeric);
+function formatFieldValue(_key: string, value: unknown): string {
+  if (Array.isArray(value)) {
+    return value.join(", ");
   }
-  if (obs.value_text) return obs.value_text;
-  if (obs.value_boolean !== null && obs.value_boolean !== undefined) {
-    return obs.value_boolean ? "Yes" : "No";
+  if (typeof value === "boolean") {
+    return value ? "Yes" : "No";
   }
-  if (obs.value_json !== null && obs.value_json !== undefined) {
-    try {
-      return JSON.stringify(obs.value_json).slice(0, 80) + (JSON.stringify(obs.value_json).length > 80 ? "..." : "");
-    } catch {
-      return "JSON data";
-    }
-  }
-  return "";
+  return String(value ?? "");
+}
+
+function formatFieldLabel(code: string): string {
+  return code
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 interface Props {
@@ -75,8 +72,9 @@ export function Timeline({ observations, state, loadingMore, hasMore, onLoadMore
   return (
     <div className="space-y-3">
       {observations.map((obs) => {
-        const displayValue = formatValue(obs);
         const isOwn = currentUserId && obs.observer_id === currentUserId;
+        const entries = Object.entries(obs.field_values ?? {});
+
         return (
           <div
             key={obs.id}
@@ -85,20 +83,30 @@ export function Timeline({ observations, state, loadingMore, hasMore, onLoadMore
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap mb-1">
                 <span className="text-sm font-medium">
-                  {obs.subject?.name || "Unknown"}
+                  {obs.entity?.name || "Unknown"}
                 </span>
-                {obs.variable && (
+                {obs.tracker && (
                   <Badge variant="outline" className="text-xs">
-                    {obs.variable.name}
+                    {obs.tracker.name}
                   </Badge>
                 )}
                 {isOwn && (
                   <span className="text-xs text-muted-foreground">by you</span>
                 )}
               </div>
-              {displayValue && (
-                <p className="text-sm text-muted-foreground">
-                  {displayValue}
+              {entries.length > 0 && (
+                <div className="text-sm text-muted-foreground space-y-0.5">
+                  {entries.map(([key, val]) => (
+                    <div key={key}>
+                      <span className="font-medium">{formatFieldLabel(key)}:</span>{" "}
+                      {formatFieldValue(key, val)}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {obs.notes && (
+                <p className="text-sm text-muted-foreground mt-1 italic">
+                  {obs.notes}
                 </p>
               )}
             </div>

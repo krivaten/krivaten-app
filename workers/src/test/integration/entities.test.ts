@@ -4,10 +4,9 @@ import { authHeaders, createTestUser } from "../helpers/auth";
 import { cleanupAllData } from "../helpers/cleanup";
 import {
   setupUserWithTenant,
-  getSystemVocabId,
+  getEntityTypeId,
   createEntityForUser,
-  createEdgeForUser,
-  createObservationForUser,
+  createRelationshipForUser,
   type TestUser,
 } from "../helpers/fixtures";
 
@@ -24,7 +23,7 @@ describe("Entities Routes", () => {
 
   describe("POST /api/v1/entities", () => {
     it("creates entity with entity_type_id (UUID)", async () => {
-      const typeId = await getSystemVocabId(user, "entity_type", "person");
+      const typeId = await getEntityTypeId(user, "person");
       const res = await appPost(
         "/api/v1/entities",
         { entity_type_id: typeId, name: "Alice" },
@@ -132,7 +131,7 @@ describe("Entities Routes", () => {
   });
 
   describe("GET /api/v1/entities/:id", () => {
-    it("returns entity with joined entity_type vocabulary", async () => {
+    it("returns entity with joined entity_type", async () => {
       const entity = await createEntityForUser(user, {
         entity_type: "person",
         name: "Alice",
@@ -185,39 +184,62 @@ describe("Entities Routes", () => {
     });
   });
 
-  describe("GET /api/v1/entities/:id/edges", () => {
-    it("returns edges for an entity", async () => {
+  describe("GET /api/v1/entities/:id/relationships", () => {
+    it("returns relationships for an entity", async () => {
       const entityA = await createEntityForUser(user, { entity_type: "person", name: "Alice" });
       const entityB = await createEntityForUser(user, { entity_type: "location", name: "Garden" });
-      await createEdgeForUser(user, {
+      await createRelationshipForUser(user, {
         source_id: entityA.id,
         target_id: entityB.id,
-        edge_type: "located_in",
+        type: "located_in",
       });
 
-      const res = await appGet(`/api/v1/entities/${entityA.id}/edges`, headers);
+      const res = await appGet(`/api/v1/entities/${entityA.id}/relationships`, headers);
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body).toHaveLength(1);
-      expect(body[0].edge_type).toBe("located_in");
+      expect(body[0].type).toBe("located_in");
     });
   });
 
-  describe("GET /api/v1/entities/:id/timeseries", () => {
-    it("returns time-series observations via RPC", async () => {
-      const entity = await createEntityForUser(user, { entity_type: "plant", name: "Tomato" });
-      const varId = await getSystemVocabId(user, "variable", "temperature");
-      await createObservationForUser(user, {
-        subject_id: entity.id,
-        variable_id: varId,
-        value_numeric: 22.5,
-      });
+  describe("GET /api/v1/entities/:id/trackers", () => {
+    it("returns default trackers for a person entity", async () => {
+      const entity = await createEntityForUser(user, { entity_type: "person", name: "Alice" });
 
-      const res = await appGet(`/api/v1/entities/${entity.id}/timeseries`, headers);
+      const res = await appGet(`/api/v1/entities/${entity.id}/trackers`, headers);
       expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.length).toBeGreaterThanOrEqual(1);
-      expect(body[0].value_numeric).toBe(22.5);
+      const body: Array<{ tracker: { code: string }; is_default: boolean; is_enabled: boolean }> =
+        await res.json();
+      expect(body.length).toBe(5); // behavior, diet, sleep, health, mood
+      expect(body.every((t) => t.is_default === true)).toBe(true);
+      expect(body.every((t) => t.is_enabled === true)).toBe(true);
+    });
+  });
+
+  describe("PUT /api/v1/entities/:id/trackers", () => {
+    it("adds and disables tracker overrides", async () => {
+      const entity = await createEntityForUser(user, { entity_type: "person", name: "Alice" });
+
+      // Get default trackers to find one to disable
+      const listRes = await appGet(`/api/v1/entities/${entity.id}/trackers`, headers);
+      const trackers: Array<{ tracker: { id: string; code: string } }> = await listRes.json();
+      const behaviorTracker = trackers.find((t) => t.tracker.code === "behavior");
+      expect(behaviorTracker).toBeDefined();
+
+      // Disable behavior tracker
+      const res = await appPut(
+        `/api/v1/entities/${entity.id}/trackers`,
+        [{ tracker_id: behaviorTracker!.tracker.id, is_enabled: false }],
+        headers,
+      );
+      expect(res.status).toBe(200);
+
+      // Verify it's disabled
+      const updated = await appGet(`/api/v1/entities/${entity.id}/trackers`, headers);
+      const body: Array<{ tracker: { code: string }; is_enabled: boolean }> = await updated.json();
+      const behavior = body.find((t) => t.tracker.code === "behavior");
+      expect(behavior).toBeDefined();
+      expect(behavior!.is_enabled).toBe(false);
     });
   });
 
@@ -225,10 +247,10 @@ describe("Entities Routes", () => {
     it("returns related entities via graph traversal", async () => {
       const entityA = await createEntityForUser(user, { entity_type: "person", name: "Alice" });
       const entityB = await createEntityForUser(user, { entity_type: "location", name: "Garden" });
-      await createEdgeForUser(user, {
+      await createRelationshipForUser(user, {
         source_id: entityA.id,
         target_id: entityB.id,
-        edge_type: "located_in",
+        type: "located_in",
       });
 
       const res = await appGet(`/api/v1/entities/${entityA.id}/related`, headers);

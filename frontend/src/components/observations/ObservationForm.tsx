@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -6,10 +6,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -20,38 +18,39 @@ import {
 import { Combobox } from "@/components/ui/combobox";
 import { toast } from "sonner";
 import { useEntities } from "@/hooks/useEntities";
-import { useVocabularies } from "@/hooks/useVocabularies";
+import { useEntityTrackers } from "@/hooks/useEntityTrackers";
+import { useTracker } from "@/hooks/useTrackers";
+import { TrackerFieldInput } from "./TrackerFieldInput";
 import type { Observation, ObservationCreate } from "@/types/observation";
-
-type ValueType = "numeric" | "text" | "boolean" | "json";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (observation: ObservationCreate) => Promise<Observation>;
-  defaultSubjectId?: string;
+  defaultEntityId?: string;
 }
 
-export function ObservationForm({ open, onOpenChange, onSubmit, defaultSubjectId }: Props) {
+export function ObservationForm({ open, onOpenChange, onSubmit, defaultEntityId }: Props) {
   const { entities } = useEntities();
-  const { vocabularies: variables } = useVocabularies({ type: "variable" });
-  const { vocabularies: units } = useVocabularies({ type: "unit" });
-  const { vocabularies: qualityFlags } = useVocabularies({ type: "quality_flag" });
-  const { vocabularies: methods } = useVocabularies({ type: "method" });
-  const [subjectId, setSubjectId] = useState(defaultSubjectId ?? "");
-  const [variableId, setVariableId] = useState("");
-  const [valueType, setValueType] = useState<ValueType>("numeric");
-  const [valueNumeric, setValueNumeric] = useState("");
-  const [valueText, setValueText] = useState("");
-  const [valueBoolean, setValueBoolean] = useState(false);
-  const [valueJson, setValueJson] = useState("");
-  const [unitId, setUnitId] = useState("");
-  const [qualityFlag, setQualityFlag] = useState("");
-  const [methodId, setMethodId] = useState("");
-  const [observedAt, setObservedAt] = useState(
-    new Date().toISOString().slice(0, 16),
-  );
+  const [entityId, setEntityId] = useState(defaultEntityId ?? "");
+  const [trackerId, setTrackerId] = useState("");
+  const [fieldValues, setFieldValues] = useState<Record<string, unknown>>({});
+  const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const { enabledTrackers } = useEntityTrackers(entityId);
+  const { tracker: selectedTracker } = useTracker(trackerId);
+
+  // Reset tracker when entity changes
+  useEffect(() => {
+    setTrackerId("");
+    setFieldValues({});
+  }, [entityId]);
+
+  // Reset field values when tracker changes
+  useEffect(() => {
+    setFieldValues({});
+  }, [trackerId]);
 
   const entityOptions = entities.map((e) => ({
     value: e.id,
@@ -59,50 +58,48 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultSubjectId
     description: e.entity_type?.name,
   }));
 
+  const sortedFields = (selectedTracker?.fields ?? []).sort(
+    (a, b) => a.position - b.position,
+  );
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!subjectId || !variableId) return;
+    if (!entityId || !trackerId) return;
+
+    // Validate required fields
+    const missingRequired = sortedFields
+      .filter((f) => f.is_required)
+      .filter((f) => {
+        const val = fieldValues[f.code];
+        return val === undefined || val === null || val === "";
+      });
+
+    if (missingRequired.length > 0) {
+      toast.error(`Missing required fields: ${missingRequired.map((f) => f.name).join(", ")}`);
+      return;
+    }
 
     setLoading(true);
     try {
-      const observation: ObservationCreate = {
-        subject_id: subjectId,
-        variable_id: variableId,
-        observed_at: new Date(observedAt).toISOString(),
-      };
-
-      if (valueType === "numeric" && valueNumeric) {
-        observation.value_numeric = Number(valueNumeric);
-      } else if (valueType === "text" && valueText) {
-        observation.value_text = valueText;
-      } else if (valueType === "boolean") {
-        observation.value_boolean = valueBoolean;
-      } else if (valueType === "json" && valueJson) {
-        try {
-          observation.value_json = JSON.parse(valueJson);
-        } catch {
-          toast.error("Invalid JSON value");
-          setLoading(false);
-          return;
+      // Clean field values - remove empty/undefined entries
+      const cleanValues: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(fieldValues)) {
+        if (val !== undefined && val !== null && val !== "") {
+          cleanValues[key] = val;
         }
       }
 
-      if (unitId) observation.unit_id = unitId;
-      if (qualityFlag) observation.quality_flag = qualityFlag;
-      if (methodId) observation.method_id = methodId;
-
-      await onSubmit(observation);
+      await onSubmit({
+        entity_id: entityId,
+        tracker_id: trackerId,
+        field_values: cleanValues,
+        notes: notes.trim() || undefined,
+      });
       toast.success("Observation logged!");
-      setVariableId("");
-      setValueNumeric("");
-      setValueText("");
-      setValueBoolean(false);
-      setValueJson("");
-      setUnitId("");
-      setQualityFlag("");
-      setMethodId("");
-      setObservedAt(new Date().toISOString().slice(0, 16));
-      if (!defaultSubjectId) setSubjectId("");
+      setFieldValues({});
+      setNotes("");
+      setTrackerId("");
+      if (!defaultEntityId) setEntityId("");
       onOpenChange(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to log observation");
@@ -119,151 +116,66 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultSubjectId
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label>Subject</Label>
+            <Label>Entity</Label>
             <Combobox
               options={entityOptions}
-              value={subjectId}
-              onValueChange={setSubjectId}
+              value={entityId}
+              onValueChange={setEntityId}
               placeholder="Select entity..."
               searchPlaceholder="Search entities..."
               emptyMessage="No entities found."
-              disabled={!!defaultSubjectId}
+              disabled={!!defaultEntityId}
             />
           </div>
-          <div className="space-y-2">
-            <Label>Variable</Label>
-            <Select value={variableId} onValueChange={setVariableId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select variable..." />
-              </SelectTrigger>
-              <SelectContent>
-                {variables.map((v) => (
-                  <SelectItem key={v.id} value={v.id}>
-                    {v.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Value Type</Label>
-            <Select value={valueType} onValueChange={(v) => setValueType(v as ValueType)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="numeric">Number</SelectItem>
-                <SelectItem value="text">Text</SelectItem>
-                <SelectItem value="boolean">Boolean</SelectItem>
-                <SelectItem value="json">JSON</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {valueType === "numeric" && (
+
+          {entityId && (
             <div className="space-y-2">
-              <Label htmlFor="obs-value-numeric">Value</Label>
-              <Input
-                id="obs-value-numeric"
-                type="number"
-                step="any"
-                value={valueNumeric}
-                onChange={(e) => setValueNumeric(e.target.value)}
-                placeholder="e.g. 22.5"
-              />
-            </div>
-          )}
-          {valueType === "text" && (
-            <div className="space-y-2">
-              <Label htmlFor="obs-value-text">Value</Label>
-              <Input
-                id="obs-value-text"
-                value={valueText}
-                onChange={(e) => setValueText(e.target.value)}
-                placeholder="e.g. Healthy, Good condition"
-              />
-            </div>
-          )}
-          {valueType === "boolean" && (
-            <div className="flex items-center gap-2 py-2">
-              <Checkbox
-                id="obs-value-boolean"
-                checked={valueBoolean}
-                onCheckedChange={(checked) => setValueBoolean(checked === true)}
-              />
-              <Label htmlFor="obs-value-boolean">Value is true</Label>
-            </div>
-          )}
-          {valueType === "json" && (
-            <div className="space-y-2">
-              <Label htmlFor="obs-value-json">JSON Value</Label>
-              <Textarea
-                id="obs-value-json"
-                value={valueJson}
-                onChange={(e) => setValueJson(e.target.value)}
-                placeholder='{"key": "value"}'
-                rows={4}
-              />
-            </div>
-          )}
-          <div className="space-y-2">
-            <Label>Unit (optional)</Label>
-            <Select value={unitId} onValueChange={setUnitId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select unit..." />
-              </SelectTrigger>
-              <SelectContent>
-                {units.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {qualityFlags.length > 0 && (
-            <div className="space-y-2">
-              <Label>Quality Flag (optional)</Label>
-              <Select value={qualityFlag} onValueChange={setQualityFlag}>
+              <Label>Tracker</Label>
+              <Select value={trackerId} onValueChange={setTrackerId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select quality flag..." />
+                  <SelectValue placeholder="Select tracker..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {qualityFlags.map((qf) => (
-                    <SelectItem key={qf.id} value={qf.code}>
-                      {qf.name}
+                  {enabledTrackers.map((et) => (
+                    <SelectItem key={et.tracker.id} value={et.tracker.id}>
+                      {et.tracker.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           )}
-          {methods.length > 0 && (
-            <div className="space-y-2">
-              <Label>Method (optional)</Label>
-              <Select value={methodId} onValueChange={setMethodId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select method..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {methods.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+          {selectedTracker && sortedFields.length > 0 && (
+            <div className="space-y-3 rounded-lg border p-3">
+              {sortedFields.map((field) => (
+                <TrackerFieldInput
+                  key={field.id}
+                  field={field}
+                  value={fieldValues[field.code]}
+                  onChange={(val) =>
+                    setFieldValues((prev) => ({ ...prev, [field.code]: val }))
+                  }
+                />
+              ))}
             </div>
           )}
+
           <div className="space-y-2">
-            <Label htmlFor="obs-observed-at">Observed At</Label>
-            <Input
-              id="obs-observed-at"
-              type="datetime-local"
-              value={observedAt}
-              onChange={(e) => setObservedAt(e.target.value)}
+            <Label>Notes (optional)</Label>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Additional notes..."
+              rows={2}
             />
           </div>
-          <Button type="submit" disabled={loading || !subjectId || !variableId} className="w-full">
+
+          <Button
+            type="submit"
+            disabled={loading || !entityId || !trackerId}
+            className="w-full"
+          >
             {loading ? "Logging..." : "Log Observation"}
           </Button>
         </form>
