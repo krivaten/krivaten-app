@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/ui/combobox";
 import { toast } from "sonner";
 import { useEntities } from "@/hooks/useEntities";
@@ -36,6 +37,7 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultEntityId 
   const [trackerId, setTrackerId] = useState("");
   const [fieldValues, setFieldValues] = useState<Record<string, unknown>>({});
   const [notes, setNotes] = useState("");
+  const [observedAt, setObservedAt] = useState("");
   const [loading, setLoading] = useState(false);
 
   const { enabledTrackers } = useEntityTrackers(entityId);
@@ -94,10 +96,12 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultEntityId 
         tracker_id: trackerId,
         field_values: cleanValues,
         notes: notes.trim() || undefined,
+        observed_at: observedAt || undefined,
       });
       toast.success("Observation logged!");
       setFieldValues({});
       setNotes("");
+      setObservedAt("");
       setTrackerId("");
       if (!defaultEntityId) setEntityId("");
       onOpenChange(false);
@@ -169,6 +173,19 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultEntityId 
               placeholder="Additional notes..."
               rows={2}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="observed-at">Date & Time (optional)</Label>
+            <Input
+              id="observed-at"
+              type="datetime-local"
+              value={observedAt}
+              onChange={(e) => setObservedAt(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Leave blank to use the current time.
+            </p>
           </div>
 
           <Button

@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/ui/combobox";
 import { toast } from "sonner";
 import { useEntities } from "@/hooks/useEntities";
@@ -41,6 +42,7 @@ export function BatchObservationForm({ open, onOpenChange, onSuccess, onBatchSub
   const { entities } = useEntities();
   const { trackers } = useTrackers();
   const [trackerId, setTrackerId] = useState("");
+  const [observedAt, setObservedAt] = useState("");
   const [rows, setRows] = useState<BatchRow[]>([emptyRow()]);
   const [loading, setLoading] = useState(false);
 
@@ -107,6 +109,7 @@ export function BatchObservationForm({ open, onOpenChange, onSuccess, onBatchSub
           entity_id: row.entityId,
           tracker_id: trackerId,
           field_values: cleanValues,
+          observed_at: observedAt || undefined,
         };
       });
 
@@ -115,6 +118,7 @@ export function BatchObservationForm({ open, onOpenChange, onSuccess, onBatchSub
         `${observations.length} observation${observations.length !== 1 ? "s" : ""} logged!`,
       );
       setRows([emptyRow()]);
+      setObservedAt("");
       onSuccess();
       onOpenChange(false);
     } catch (err) {
@@ -148,6 +152,21 @@ export function BatchObservationForm({ open, onOpenChange, onSuccess, onBatchSub
               </SelectContent>
             </Select>
           </div>
+
+          {trackerId && (
+            <div className="space-y-2">
+              <Label htmlFor="batch-observed-at">Date & Time for all rows (optional)</Label>
+              <Input
+                id="batch-observed-at"
+                type="datetime-local"
+                value={observedAt}
+                onChange={(e) => setObservedAt(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Leave blank to use the current time. Applies to all rows.
+              </p>
+            </div>
+          )}
 
           {trackerId && (
             <div className="space-y-4">

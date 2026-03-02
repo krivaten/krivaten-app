@@ -2,11 +2,13 @@ import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useObservations } from "@/hooks/useObservations";
 import { useTrackers } from "@/hooks/useTrackers";
+import { useEntities } from "@/hooks/useEntities";
 import { ObservationForm } from "@/components/observations/ObservationForm";
 import { BatchObservationForm } from "@/components/observations/BatchObservationForm";
 import { Timeline } from "@/components/observations/Timeline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Select,
   SelectContent,
@@ -22,19 +24,28 @@ export default function Observations() {
   const [tracker, setTracker] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [entityId, setEntityId] = useState("");
   const [page, setPage] = useState(1);
 
   const { trackers } = useTrackers();
+  const { entities } = useEntities();
+
+  const entityOptions = entities.map((e) => ({
+    value: e.id,
+    label: e.name,
+    description: e.entity_type?.name,
+  }));
 
   const filters = useMemo(
     () => ({
+      entity_id: entityId || undefined,
       tracker: tracker || undefined,
       from: fromDate || undefined,
       to: toDate || undefined,
       page,
       per_page: 30,
     }),
-    [tracker, fromDate, toDate, page],
+    [entityId, tracker, fromDate, toDate, page],
   );
 
   const {
@@ -60,6 +71,18 @@ export default function Observations() {
       </div>
 
       <div className="flex flex-wrap gap-3">
+        <Combobox
+          options={entityOptions}
+          value={entityId}
+          onValueChange={(v) => {
+            setEntityId(v);
+            setPage(1);
+          }}
+          placeholder="All Entities"
+          searchPlaceholder="Search entities..."
+          emptyMessage="No entities found."
+          className="w-[200px]"
+        />
         <Select
           value={tracker}
           onValueChange={(v) => {
@@ -99,11 +122,12 @@ export default function Observations() {
           className="w-[160px]"
           placeholder="To..."
         />
-        {(tracker || fromDate || toDate) && (
+        {(entityId || tracker || fromDate || toDate) && (
           <Button
             variant="ghost"
             size="sm"
             onClick={() => {
+              setEntityId("");
               setTracker("");
               setFromDate("");
               setToDate("");
