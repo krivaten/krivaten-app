@@ -37,6 +37,7 @@ export const queryKeys = {
       ["entities", "list", filters ?? {}] as const,
     detail: (id: string) => ["entities", "detail", id] as const,
     trackers: (id: string) => ["entities", "trackers", id] as const,
+    related: (id: string) => ["entities", "related", id] as const,
   },
   observations: {
     all: () => ["observations"] as const,

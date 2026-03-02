@@ -349,6 +349,119 @@ PUT /api/v1/entities/<tomato-id>/trackers
 ]
 ```
 
+## Getting Started Walkthrough
+
+This walkthrough guides you through using Krivaten's web interface to set up a garden tracking space from scratch.
+
+### 1. Sign Up and Create Your Space
+
+1. Navigate to the app and click **Sign Up**
+2. Create an account with email/password, Google, or GitHub
+3. After signing in, you'll be prompted to create a **Space** — this is your private workspace
+4. Enter a name like "My Homestead" and submit
+5. You can rename your space anytime from the **Profile** page under Space Settings
+
+### 2. Add Your First Entities
+
+Entities are the things you want to track. Let's add some garden infrastructure and plants.
+
+1. Click **Entities** in the navigation bar
+2. Click **Add Entity** to open the creation form
+3. Create a location for your garden bed:
+   - **Name:** "Raised Bed A"
+   - **Type:** Location
+   - **Description:** "4x8 cedar raised bed, south-facing"
+   - Click **Create Entity**
+4. Click the **Plant** tab, then **Add Entity** again:
+   - **Name:** "Roma Tomato #1"
+   - **Type:** Plant
+   - **External ID:** "PLANT-001" (useful if you label your plants)
+   - **Taxonomy Path:** Start typing "biology.botany" — if matching paths exist, you'll see autocomplete suggestions
+   - Click **Add Attribute**, enter **Key:** "variety", **Value:** "Roma VF"
+   - Click **Add Attribute**, enter **Key:** "planted_date", **Value:** "2026-03-01"
+   - Click **Create Entity**
+5. Create a few more entities — a "Basil - Genovese" plant and a "Greenhouse" location
+6. Use the **type tabs** and **search bar** to filter and find your entities
+
+### 3. Connect Entities with Relationships
+
+Relationships show how entities are connected to each other.
+
+1. Click on "Roma Tomato #1" to open its detail page
+2. In the **Connections** card, click **Add Connection**
+3. Set up the relationship:
+   - **From:** Roma Tomato #1 (pre-filled, read-only)
+   - **Relationship Type:** Located In
+   - **To:** Search for and select "Raised Bed A"
+   - **Label:** "primary" (optional)
+4. Click **Show advanced options** to set temporal validity:
+   - **Valid From:** Set to the planting date
+   - **Valid Until:** Leave blank for ongoing connections, or set an end date for seasonal placements
+   - **Weight:** Leave as default, or set higher for primary relationships
+5. Click **Create Connection**
+6. The connection now appears with a → arrow showing direction, plus any temporal info
+
+### 4. Customize Trackers for Your Entities
+
+Each entity type comes with default trackers. You can enable or disable specific trackers per entity.
+
+1. On the "Roma Tomato #1" detail page, find the **Trackers** card
+2. You'll see the default plant trackers: Soil, Health, Growth, Harvest
+3. Toggle **Soil** off if you track soil conditions at the bed level instead
+4. To see what trackers are available, click **Trackers** in the navigation bar
+5. Click any tracker card to see its fields — each tracker defines what data you can record
+6. For example, the **Growth** tracker has fields for height, width, leaf count, and growth stage
+
+### 5. Log Observations
+
+Observations are the structured measurements you record over time.
+
+**Single Observation (from entity detail):**
+1. On "Roma Tomato #1", click **Log Observation**
+2. The entity is pre-selected — choose **Growth** as the tracker
+3. Fill in the dynamic fields: height_cm, width_cm, leaf_count, stage
+4. Add optional notes: "First true leaves appearing"
+5. Use the **Date & Time** picker to backdate if you're logging yesterday's data — leave blank for now
+6. Click **Log Observation**
+
+**From the Metrics Page:**
+1. Click **Metrics** in the navigation bar
+2. Click **Log Observation** to log for any entity
+3. Select the entity, then the tracker, fill in fields, and submit
+
+**Batch Logging (for garden rounds):**
+1. On the Metrics page, click **Batch Log**
+2. Select a tracker — e.g., **Growth** (applies to all rows)
+3. Optionally set a **Date & Time** — all rows will share this timestamp
+4. In Row 1, select "Roma Tomato #1" and fill in its growth measurements
+5. Click **Add Row**, select "Basil - Genovese", fill in its measurements
+6. Click **Submit 2 Observations** to log them all at once
+
+**Quick Log (from the Dashboard):**
+1. Go to the **Home** page (click the app logo or Home nav link)
+2. The **Quick Log** card on the right shows only required fields for speed
+3. Select an entity, pick a tracker, fill in the essentials, and click **Log**
+
+### 6. Filter and Explore Observation History
+
+1. Navigate to the **Metrics** page to see all observations
+2. Use the filters to narrow down:
+   - **Entity filter:** Select a specific entity to see only its observations
+   - **Tracker filter:** Select e.g., "Growth" to see only growth observations
+   - **Date range:** Set From and To dates to view a specific time period
+3. Click **Clear filters** to reset all filters
+4. Click on any observation in the timeline to open a **detail dialog** showing the full timestamp, all field values, and notes
+5. To delete an observation you recorded, click **Delete** on the right side
+
+### 7. Explore the Entity Graph
+
+1. Navigate to any entity's detail page
+2. The **Connections** card shows direct relationships (one hop)
+3. Below it, the **Related Entities** card shows entities connected across multiple hops
+   - For example, if Tomato → located_in → Raised Bed A → part_of → Garden, you'll see both the bed and the garden listed
+   - Depth badges show how many hops away each entity is
+4. Click any related entity to navigate to its detail page and explore further
+
 ## Frontend Patterns
 
 ### State Management

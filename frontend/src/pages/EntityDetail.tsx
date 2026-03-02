@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useObservations } from "@/hooks/useObservations";
 import { useRelationships } from "@/hooks/useRelationships";
 import { useEntityTrackers } from "@/hooks/useEntityTrackers";
+import { useRelatedEntities } from "@/hooks/useRelatedEntities";
 import { EntityForm } from "@/components/entities/EntityForm";
 import { RelationshipForm } from "@/components/relationships/RelationshipForm";
 import { ObservationForm } from "@/components/observations/ObservationForm";
@@ -66,6 +67,8 @@ export default function EntityDetail() {
   const { trackers: entityTrackers, updateTrackers } = useEntityTrackers(
     id ?? "",
   );
+
+  const { relatedEntities } = useRelatedEntities(id ?? "");
 
   if (entityState === State.PENDING) {
     return (
@@ -279,6 +282,50 @@ export default function EntityDetail() {
           )}
         </CardContent>
       </Card>
+
+      {relatedEntities.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Related Entities{" "}
+              <span className="text-muted-foreground font-normal">
+                ({relatedEntities.length})
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {relatedEntities.map((rel) => (
+                <div
+                  key={`${rel.entity_id}-${rel.relationship_id}`}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">
+                      {rel.entity_type}
+                    </Badge>
+                    <Link
+                      to={`/entities/${rel.entity_id}`}
+                      className="hover:underline"
+                    >
+                      {rel.entity_name}
+                    </Link>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{rel.relationship_type}</span>
+                    <span>{rel.direction === "outgoing" ? "\u2192" : "\u2190"}</span>
+                    {rel.depth > 1 && (
+                      <Badge variant="secondary" className="text-xs">
+                        depth {rel.depth}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div>
         <h2 className="text-lg font-semibold mb-4">

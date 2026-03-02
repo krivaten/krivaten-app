@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useEntityTypes } from "@/hooks/useEntityTypes";
+import { useTaxonomySearch } from "@/hooks/useTaxonomySearch";
 import type { Entity, EntityCreate } from "@/types/entity";
 
 interface Props {
@@ -36,6 +37,7 @@ export function EntityForm({ open, onOpenChange, onSubmit, initialTypeCode, enti
   const [externalId, setExternalId] = useState("");
   const [attrEntries, setAttrEntries] = useState<{ key: string; value: string }[]>([]);
   const [loading, setLoading] = useState(false);
+  const [taxonomyDebounced, setTaxonomyDebounced] = useState("");
 
   const isEdit = !!entity;
 
@@ -64,6 +66,13 @@ export function EntityForm({ open, onOpenChange, onSubmit, initialTypeCode, enti
       setAttrEntries([]);
     }
   }, [open, entity]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setTaxonomyDebounced(taxonomyPath), 300);
+    return () => clearTimeout(timer);
+  }, [taxonomyPath]);
+
+  const { suggestions: taxonomySuggestions } = useTaxonomySearch(taxonomyDebounced);
 
   // Resolve initialTypeCode to an id when entity types load
   const resolvedInitialId = initialTypeCode
@@ -186,6 +195,20 @@ export function EntityForm({ open, onOpenChange, onSubmit, initialTypeCode, enti
               onChange={(e) => setTaxonomyPath(e.target.value)}
               placeholder="e.g. biology.botany.flowering"
             />
+            {taxonomySuggestions.length > 0 && taxonomyPath.length >= 2 && (
+              <div className="rounded-md border max-h-32 overflow-y-auto">
+                {taxonomySuggestions.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className="w-full text-left text-sm px-3 py-1.5 hover:bg-muted transition-colors"
+                    onClick={() => setTaxonomyPath(s)}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           {attrEntries.length > 0 && (
             <div className="space-y-2">
