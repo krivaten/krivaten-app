@@ -50,7 +50,7 @@ export default function Observations() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Observations</h1>
+        <h1 className="text-2xl font-bold">Metrics</h1>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setBatchOpen(true)}>
             Batch Log

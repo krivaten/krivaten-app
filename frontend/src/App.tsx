@@ -15,6 +15,7 @@ const ProfileEdit = lazy(() => import("./pages/profile/Edit"));
 const Entities = lazy(() => import("./pages/Entities"));
 const EntityDetail = lazy(() => import("./pages/EntityDetail"));
 const Observations = lazy(() => import("./pages/Observations"));
+const Trackers = lazy(() => import("./pages/Trackers"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,7 +49,8 @@ function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/entities" element={<Entities />} />
               <Route path="/entities/:id" element={<EntityDetail />} />
-              <Route path="/observations" element={<Observations />} />
+              <Route path="/trackers" element={<Trackers />} />
+              <Route path="/metrics" element={<Observations />} />
               <Route path="/profile" element={<ProfileEdit />} />
             </Route>
           </Routes>

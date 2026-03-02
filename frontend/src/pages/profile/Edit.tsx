@@ -58,9 +58,9 @@ export default function ProfileEdit() {
     setSavingTenant(true);
     try {
       await updateTenant({ name: tenantName.trim() });
-      toast.success("Workspace updated");
+      toast.success("Space updated");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update workspace");
+      toast.error(err instanceof Error ? err.message : "Failed to update space");
     } finally {
       setSavingTenant(false);
     }
@@ -121,23 +121,23 @@ export default function ProfileEdit() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Workspace Settings</CardTitle>
+          <CardTitle>Space Settings</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="tenantName">Workspace Name</Label>
+            <Label htmlFor="tenantName">Space Name</Label>
             <Input
               id="tenantName"
               value={tenantName}
               onChange={(e) => setTenantName(e.target.value)}
-              placeholder="Workspace name"
+              placeholder="Space name"
             />
           </div>
           <p className="text-xs text-muted-foreground">
             Created {new Date(tenant.created_at).toLocaleDateString()}
           </p>
           <Button onClick={handleSaveTenant} disabled={savingTenant || !tenantName.trim()}>
-            {savingTenant ? "Saving..." : "Save Workspace"}
+            {savingTenant ? "Saving..." : "Save Space"}
           </Button>
         </CardContent>
       </Card>
