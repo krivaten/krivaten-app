@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { State } from "@/lib/state";
+import { ObservationDetail } from "./ObservationDetail";
 import type { Observation } from "@/types/observation";
 
 function timeAgo(dateStr: string): string {
@@ -50,6 +51,7 @@ interface Props {
 
 export function Timeline({ observations, state, loadingMore, hasMore, onLoadMore, onDelete, currentUserId }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   async function handleDelete(id: string) {
     if (!onDelete || !confirm("Delete this observation? This cannot be undone.")) return;
@@ -78,7 +80,8 @@ export function Timeline({ observations, state, loadingMore, hasMore, onLoadMore
         return (
           <div
             key={obs.id}
-            className="flex gap-4 rounded-lg border p-4"
+            className="flex gap-4 rounded-lg border p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+            onClick={() => setSelectedId(obs.id)}
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -119,7 +122,10 @@ export function Timeline({ observations, state, loadingMore, hasMore, onLoadMore
                   variant="ghost"
                   size="xs"
                   className="text-xs text-muted-foreground hover:text-destructive"
-                  onClick={() => handleDelete(obs.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(obs.id);
+                  }}
                   disabled={deletingId === obs.id}
                 >
                   {deletingId === obs.id ? "..." : "Delete"}
@@ -137,6 +143,12 @@ export function Timeline({ observations, state, loadingMore, hasMore, onLoadMore
           </Button>
         </div>
       )}
+
+      <ObservationDetail
+        observationId={selectedId}
+        open={!!selectedId}
+        onOpenChange={(open) => { if (!open) setSelectedId(null); }}
+      />
     </div>
   );
 }

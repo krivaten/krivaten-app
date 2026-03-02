@@ -33,6 +33,7 @@ export function EntityForm({ open, onOpenChange, onSubmit, initialTypeCode, enti
   const [typeId, setTypeId] = useState("");
   const [description, setDescription] = useState("");
   const [taxonomyPath, setTaxonomyPath] = useState("");
+  const [externalId, setExternalId] = useState("");
   const [attrEntries, setAttrEntries] = useState<{ key: string; value: string }[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -44,6 +45,7 @@ export function EntityForm({ open, onOpenChange, onSubmit, initialTypeCode, enti
       setName(entity.name);
       setTypeId(entity.entity_type_id || "");
       setDescription(entity.description || "");
+      setExternalId(entity.external_id || "");
       setTaxonomyPath(entity.taxonomy_path || "");
       const attrs = entity.attributes;
       if (attrs && Object.keys(attrs).length > 0) {
@@ -57,6 +59,7 @@ export function EntityForm({ open, onOpenChange, onSubmit, initialTypeCode, enti
       setName("");
       setTypeId("");
       setDescription("");
+      setExternalId("");
       setTaxonomyPath("");
       setAttrEntries([]);
     }
@@ -100,6 +103,7 @@ export function EntityForm({ open, onOpenChange, onSubmit, initialTypeCode, enti
         entity_type_id: selectedTypeId,
         name: name.trim(),
         description: description.trim() || undefined,
+        external_id: externalId.trim() || undefined,
         taxonomy_path: taxonomyPath.trim() || undefined,
         attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
       });
@@ -108,6 +112,7 @@ export function EntityForm({ open, onOpenChange, onSubmit, initialTypeCode, enti
         setName("");
         setTypeId("");
         setDescription("");
+        setExternalId("");
         setTaxonomyPath("");
         setAttrEntries([]);
       }
@@ -162,6 +167,15 @@ export function EntityForm({ open, onOpenChange, onSubmit, initialTypeCode, enti
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Brief description..."
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="entity-external-id">External ID (optional)</Label>
+            <Input
+              id="entity-external-id"
+              value={externalId}
+              onChange={(e) => setExternalId(e.target.value)}
+              placeholder="e.g. SKU-12345, PLANT-001"
             />
           </div>
           <div className="space-y-2">

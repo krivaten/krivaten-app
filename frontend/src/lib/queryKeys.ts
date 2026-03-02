@@ -42,6 +42,7 @@ export const queryKeys = {
     all: () => ["observations"] as const,
     list: (filters?: ObservationFilters) =>
       ["observations", "list", filters ?? {}] as const,
+    detail: (id: string) => ["observations", "detail", id] as const,
   },
   relationships: {
     all: () => ["relationships"] as const,

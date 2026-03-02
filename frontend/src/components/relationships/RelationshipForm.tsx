@@ -45,6 +45,10 @@ export function RelationshipForm({ open, onOpenChange, onSubmit, sourceEntityId,
   const [targetId, setTargetId] = useState("");
   const [type, setType] = useState("");
   const [label, setLabel] = useState("");
+  const [weight, setWeight] = useState<string>("");
+  const [validFrom, setValidFrom] = useState("");
+  const [validTo, setValidTo] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [loading, setLoading] = useState(false);
   const isEdit = !!relationship;
 
@@ -53,10 +57,22 @@ export function RelationshipForm({ open, onOpenChange, onSubmit, sourceEntityId,
       setTargetId(relationship.target_id);
       setType(relationship.type);
       setLabel(relationship.label || "");
+      setWeight(relationship.weight !== undefined && relationship.weight !== 1 ? String(relationship.weight) : "");
+      setValidFrom(relationship.valid_from ? relationship.valid_from.slice(0, 16) : "");
+      setValidTo(relationship.valid_to ? relationship.valid_to.slice(0, 16) : "");
+      setShowAdvanced(!!(
+        (relationship.weight !== undefined && relationship.weight !== 1) ||
+        relationship.valid_from ||
+        relationship.valid_to
+      ));
     } else if (open && !relationship) {
       setTargetId("");
       setType("");
       setLabel("");
+      setWeight("");
+      setValidFrom("");
+      setValidTo("");
+      setShowAdvanced(false);
     }
   }, [open, relationship]);
 
@@ -79,12 +95,19 @@ export function RelationshipForm({ open, onOpenChange, onSubmit, sourceEntityId,
         target_id: targetId,
         type,
         label: label.trim() || undefined,
+        weight: weight ? Number(weight) : undefined,
+        valid_from: validFrom || undefined,
+        valid_to: validTo || undefined,
       });
       toast.success(isEdit ? "Connection updated!" : "Connection created!");
       if (!isEdit) {
         setTargetId("");
         setType("");
         setLabel("");
+        setWeight("");
+        setValidFrom("");
+        setValidTo("");
+        setShowAdvanced(false);
       }
       onOpenChange(false);
     } catch (err) {
@@ -140,6 +163,50 @@ export function RelationshipForm({ open, onOpenChange, onSubmit, sourceEntityId,
               placeholder="e.g. primary, backup"
             />
           </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-xs text-muted-foreground"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+          >
+            {showAdvanced ? "Hide advanced options" : "Show advanced options"}
+          </Button>
+          {showAdvanced && (
+            <div className="space-y-4 rounded-lg border p-3">
+              <div className="space-y-2">
+                <Label htmlFor="rel-weight">Weight (optional)</Label>
+                <Input
+                  id="rel-weight"
+                  type="number"
+                  step="0.1"
+                  value={weight}
+                  onChange={(e) => setWeight(e.target.value)}
+                  placeholder="1.0 (default)"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="rel-valid-from">Valid From</Label>
+                  <Input
+                    id="rel-valid-from"
+                    type="datetime-local"
+                    value={validFrom}
+                    onChange={(e) => setValidFrom(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="rel-valid-to">Valid Until</Label>
+                  <Input
+                    id="rel-valid-to"
+                    type="datetime-local"
+                    value={validTo}
+                    onChange={(e) => setValidTo(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
           <Button type="submit" disabled={loading || !targetId || !type} className="w-full">
             {loading ? (isEdit ? "Saving..." : "Creating...") : (isEdit ? "Save Changes" : "Create Connection")}
           </Button>

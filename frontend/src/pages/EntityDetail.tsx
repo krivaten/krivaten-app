@@ -126,6 +126,11 @@ export default function EntityDetail() {
               {entity.description}
             </p>
           )}
+          {entity.external_id && (
+            <p className="text-xs text-muted-foreground mb-1">
+              ID: {entity.external_id}
+            </p>
+          )}
           <p className="text-xs text-muted-foreground">
             Created {new Date(entity.created_at).toLocaleDateString()}
           </p>
@@ -238,6 +243,16 @@ export default function EntityDetail() {
                           ({rel.label})
                         </span>
                       )}
+                      {rel.valid_from && (
+                        <span className="text-xs text-muted-foreground">
+                          from {new Date(rel.valid_from).toLocaleDateString()}
+                        </span>
+                      )}
+                      {rel.valid_to && (
+                        <span className="text-xs text-muted-foreground">
+                          until {new Date(rel.valid_to).toLocaleDateString()}
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-1">
                       <Button
@@ -310,6 +325,9 @@ export default function EntityDetail() {
                 target_id: data.target_id,
                 type: data.type,
                 label: data.label,
+                weight: data.weight,
+                valid_from: data.valid_from,
+                valid_to: data.valid_to,
               },
             });
           }}
