@@ -2,7 +2,7 @@
 
 ## Overview
 
-Krivaten is a Universal Observation Database — a vocabulary-driven platform for tracking entities (things), edges (relationships), and observations (measurements) across any domain.
+Krivaten is a Universal Observation Database — a tracker-based platform for tracking entities (things), relationships (connections), and observations (structured measurements) across any domain.
 
 ## Architecture
 
@@ -46,7 +46,7 @@ pnpm dev              # Start everything (frontend :5173, workers :8787)
 pnpm frontend         # Frontend only
 pnpm workers          # Workers only
 pnpm build            # Production build
-pnpm test:workers     # Run 61 integration tests (requires supabase start)
+pnpm test:workers     # Run 72 integration tests (requires supabase start)
 pnpm deploy:workers   # Deploy workers to Cloudflare
 ```
 
@@ -54,11 +54,41 @@ pnpm deploy:workers   # Deploy workers to Cloudflare
 
 ### Core Concepts
 
-- **Tenants** — Multi-tenant workspaces. Each user belongs to one or more tenants via `tenant_members`.
-- **Entities** — Things being tracked (people, locations, plants, equipment, etc.). Types are vocabulary-driven.
-- **Edges** — Directed relationships between entities with temporal validity.
-- **Observations** — Immutable measurements with polymorphic values (numeric, text, boolean, JSON).
-- **Vocabularies** — Controlled terms for entity types, variables, units, edge types, methods, quality flags.
+- **Tenants** — Multi-tenant spaces. Each user belongs to one or more tenants via `tenant_members`.
+- **Entity Types** — System-defined categories (person, plant, animal, location, project, equipment, supply, process). Stored in the `entity_types` table.
+- **Entities** — Things being tracked. Each has an `entity_type_id` FK to `entity_types`.
+- **Trackers** — Observation templates with structured fields (mood, growth, health, harvest, etc.). Each tracker defines typed fields via `tracker_fields`.
+- **Relationships** — Directed connections between entities with plain text `type` (located_in, manages, part_of, etc.) and optional temporal validity.
+- **Observations** — Structured measurements stored as JSONB `field_values` keyed by tracker field codes.
+
+### How Trackers Work
+
+Trackers define what data you can record about an entity. Each tracker has a set of typed fields:
+
+```
+Tracker: "mood"
+├── mood (single_select: very_low, low, neutral, good, very_good)
+├── energy (single_select: very_low, low, moderate, high, very_high)
+├── triggers (textarea)
+└── notes (textarea)
+```
+
+Field types: `text`, `number`, `boolean`, `single_select`, `multi_select`, `textarea`, `datetime`
+
+Each entity type has default tracker assignments:
+
+| Entity Type | Default Trackers |
+|-------------|-----------------|
+| person | behavior, diet, sleep, health, mood |
+| plant | soil, health, growth, harvest |
+| animal | health, diet, behavior, growth |
+| location | weather, conditions |
+| project | status, milestones |
+| equipment | maintenance, condition |
+| supply | inventory, usage |
+| process | execution, quality |
+
+Individual entities can override these defaults — enable additional trackers or disable ones they don't need.
 
 ### Multi-Tenant Design
 
@@ -72,22 +102,22 @@ auth.users ──▶ tenant_members ──▶ tenants (many-to-many)
 - Each membership has a `role` (admin, member) and `is_active` flag
 - Only one membership can be active per user (enforced by partial unique index)
 - `get_my_tenant_id()` returns the active tenant for RLS policies
-- All data tables (entities, edges, observations, etc.) are scoped to `tenant_id = get_my_tenant_id()`
-
-### Entity Type System
-
-Entity types are vocabulary-driven — no hardcoded constraints. The `entity_type_id` column is a FK to vocabularies where `vocabulary_type = 'entity_type'`. System seed data provides 8 default types: person, location, plant, animal, project, equipment, supply, process. New types are created by adding vocabulary entries.
+- All data tables (entities, relationships, observations, etc.) are scoped to `tenant_id = get_my_tenant_id()`
 
 ### Observation Values
 
-Observations use polymorphic value columns — only one is populated per observation:
+Observations store structured data in a JSONB `field_values` column, keyed by tracker field codes:
 
-| Column | Type | Use Case |
-|--------|------|----------|
-| `value_numeric` | DOUBLE PRECISION | Measurements, counts |
-| `value_text` | TEXT | Notes, labels |
-| `value_boolean` | BOOLEAN | Yes/no flags |
-| `value_json` | JSONB | Structured data |
+```json
+{
+  "mood": "good",
+  "energy": "high",
+  "triggers": "Exercise in the morning",
+  "notes": "Great day overall"
+}
+```
+
+The API validates that all required fields (defined in `tracker_fields` with `is_required = true`) are present before inserting.
 
 ## Auth & Profile Flow
 
@@ -96,7 +126,7 @@ Observations use polymorphic value columns — only one is populated per observa
 1. User signs in via Supabase Auth (Google, GitHub, or email/password)
 2. `handle_new_user` trigger creates a profile row on signup
 3. Frontend calls `GET /profiles/me` which triggers `ensureProfile` — a safety net if the trigger didn't fire
-4. If user has no tenant, frontend shows workspace creation UI
+4. If user has no tenant, frontend shows space creation UI
 5. `POST /tenants` creates a tenant + `tenant_members` row (admin, active)
 6. All subsequent API calls are scoped to the active tenant via RLS
 
@@ -116,29 +146,208 @@ All endpoints under `/api/v1/`. Authentication via `Authorization: Bearer <supab
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/health` | Health check |
-| POST | `/tenants` | Create workspace |
-| GET | `/tenants/mine` | Get current workspace |
-| PUT | `/tenants/mine` | Update workspace |
+| POST | `/tenants` | Create space |
+| GET | `/tenants/mine` | Get current space |
+| PUT | `/tenants/mine` | Update space |
 | GET | `/profiles/me` | Get/ensure current profile |
 | PUT | `/profiles/me` | Update profile |
-| GET/POST/PUT/DELETE | `/vocabularies` | Vocabulary CRUD |
+| GET | `/entity-types` | List entity types (optional `?code=` filter) |
+| GET | `/entity-types/:id` | Entity type with default trackers |
+| GET | `/trackers` | List trackers (optional `?entity_type=` filter) |
+| GET | `/trackers/:id` | Tracker with fields |
 | GET/POST/PUT/DELETE | `/entities` | Entity CRUD (DELETE = soft-delete) |
-| GET | `/entities/:id/edges` | Entity's edges |
-| GET | `/entities/:id/timeseries` | Time-series data (RPC) |
+| GET | `/entities/:id/trackers` | Entity's effective trackers |
+| PUT | `/entities/:id/trackers` | Toggle entity tracker overrides |
+| GET | `/entities/:id/relationships` | Entity's relationships |
 | GET | `/entities/:id/related` | Graph traversal (RPC) |
-| GET/POST/DELETE | `/edges` | Edge CRUD |
-| GET/POST/DELETE | `/observations` | Observation CRUD |
-| POST | `/observations/batch` | Batch create observations |
+| GET/POST/DELETE | `/relationships` | Relationship CRUD |
+| GET/POST/DELETE | `/observations` | Metrics (observation CRUD) with pagination |
+| GET | `/observations/:id` | Single metric with joins |
+| POST | `/observations/batch` | Batch create metrics |
 | GET | `/search/entities?q=` | Entity name search |
 | GET | `/search/taxonomy?path=` | Taxonomy prefix search |
 
-### Vocabulary Code Resolution
+### Code Resolution
 
-The API accepts both UUIDs and codes for vocabulary references:
-- Entities: `entity_type_id` (UUID) or `entity_type` (code string)
-- Observations: `variable_id` (UUID) or `variable` (code string)
+The API accepts both UUIDs and string codes for lookups:
+- Entities: `entity_type_id` (UUID) or `entity_type` (code string, resolved via `entity_types` table)
+- Observations: `tracker_id` (UUID) or `tracker` (code string, resolved via `trackers` table)
 
-The API resolves codes to UUIDs internally.
+## Use Cases
+
+### Example 1: Family Health Tracking
+
+A parent wants to track their child's daily health, mood, and behavior.
+
+**Setup:**
+1. Create a space called "Our Family"
+2. Add a "person" entity for each family member
+
+**Daily workflow:**
+
+```bash
+# Create the entity
+POST /api/v1/entities
+{ "entity_type": "person", "name": "Emma" }
+
+# Log a mood observation
+POST /api/v1/observations
+{
+  "entity_id": "<emma-id>",
+  "tracker": "mood",
+  "field_values": { "mood": "good", "energy": "high" },
+  "notes": "Had a great day at school"
+}
+
+# Log a sleep observation
+POST /api/v1/observations
+{
+  "entity_id": "<emma-id>",
+  "tracker": "sleep",
+  "field_values": {
+    "bedtime": "2026-02-27T20:30:00",
+    "wake_time": "2026-02-28T06:45:00",
+    "quality": "good",
+    "duration_hours": 10.25
+  }
+}
+
+# Log a behavior incident
+POST /api/v1/observations
+{
+  "entity_id": "<emma-id>",
+  "tracker": "behavior",
+  "field_values": {
+    "type": ["hitting", "screaming"],
+    "intensity": "moderate",
+    "duration_minutes": 15,
+    "triggers": "Didn't want to leave the playground"
+  }
+}
+
+# View recent observations for Emma
+GET /api/v1/observations?entity_id=<emma-id>&page=1&per_page=20
+```
+
+The parent can filter by tracker to see just sleep data over time, or view everything on the timeline. The `behavior` tracker captures structured incident data — type, intensity, duration, triggers — making it easy to spot patterns.
+
+### Example 2: Garden & Homestead Management
+
+A gardener tracks their plants, growing conditions, and harvests across multiple garden beds.
+
+**Setup:**
+
+```bash
+# Create location entities for garden areas
+POST /api/v1/entities
+{ "entity_type": "location", "name": "Raised Bed A" }
+
+POST /api/v1/entities
+{ "entity_type": "location", "name": "Greenhouse" }
+
+# Create plant entities
+POST /api/v1/entities
+{
+  "entity_type": "plant",
+  "name": "Roma Tomato #1",
+  "taxonomy_path": "biology.botany.solanaceae",
+  "attributes": { "variety": "Roma VF", "planted_date": "2026-03-01" }
+}
+
+POST /api/v1/entities
+{ "entity_type": "plant", "name": "Basil - Genovese" }
+
+# Connect plants to their locations
+POST /api/v1/relationships
+{
+  "source_id": "<tomato-id>",
+  "target_id": "<raised-bed-a-id>",
+  "type": "located_in"
+}
+```
+
+**Weekly observations:**
+
+```bash
+# Track plant growth
+POST /api/v1/observations
+{
+  "entity_id": "<tomato-id>",
+  "tracker": "growth",
+  "field_values": {
+    "height_cm": 45,
+    "width_cm": 30,
+    "leaf_count": 22,
+    "stage": "flowering"
+  }
+}
+
+# Track soil conditions for the bed
+POST /api/v1/observations
+{
+  "entity_id": "<raised-bed-a-id>",
+  "tracker": "conditions",
+  "field_values": {
+    "temperature_c": 24,
+    "humidity_percent": 65,
+    "light_level": "bright"
+  }
+}
+
+# Log a harvest
+POST /api/v1/observations
+{
+  "entity_id": "<tomato-id>",
+  "tracker": "harvest",
+  "field_values": {
+    "quantity": 2.5,
+    "unit": "kg",
+    "quality_rating": "excellent"
+  },
+  "notes": "First big harvest of the season!"
+}
+
+# Batch log growth for multiple plants at once
+POST /api/v1/observations/batch
+{
+  "observations": [
+    {
+      "entity_id": "<tomato-id>",
+      "tracker": "growth",
+      "field_values": { "height_cm": 48, "stage": "fruiting" }
+    },
+    {
+      "entity_id": "<basil-id>",
+      "tracker": "growth",
+      "field_values": { "height_cm": 25, "stage": "vegetative" }
+    }
+  ]
+}
+
+# Find all plants in the botany taxonomy
+GET /api/v1/search/taxonomy?path=biology.botany
+
+# See what's connected to Raised Bed A
+GET /api/v1/entities/<raised-bed-a-id>/related
+```
+
+The gardener can also enable the `health` tracker on their plant entities to track pest or disease issues, or disable the `soil` tracker on plants where they track soil at the location level instead.
+
+**Customizing trackers per entity:**
+
+```bash
+# See what trackers are active for the tomato plant
+GET /api/v1/entities/<tomato-id>/trackers
+# Returns: soil, health, growth, harvest (defaults for plant type)
+
+# Disable soil tracking on this plant (tracked at bed level instead)
+# and enable the weather tracker for outdoor plants
+PUT /api/v1/entities/<tomato-id>/trackers
+[
+  { "tracker_id": "<soil-tracker-id>", "is_enabled": false },
+  { "tracker_id": "<weather-tracker-id>", "is_enabled": true }
+]
+```
 
 ## Frontend Patterns
 
@@ -162,13 +371,29 @@ INITIAL → PENDING → NONE / ONE / SOME / MANY / ERROR
 - 401 interceptor: signs out + redirects to `/signin`
 - Error format: `"<status>: <detail>"` (reads `{ detail }` from response body)
 
+### TanStack Query Hooks
+
+All data fetching uses TanStack Query v5:
+
+- `useEntityTypes()` — list all entity types
+- `useTrackers(entityType?)` — list trackers, optionally filtered by entity type code
+- `useTracker(id)` — single tracker with fields
+- `useEntityTrackers(entityId)` — effective trackers for an entity (defaults + overrides)
+- `useEntities(filters?)` — list entities with type/search/active filters
+- `useRelationships(entityId?)` — list relationships for an entity
+- `useObservations(filters?)` — paginated observations with entity_id/tracker/date filters
+
 ### UI Components
 
 Built on shadcn/ui with Radix primitives:
 - **Combobox** — searchable select (Popover + Command/cmdk)
+- **TrackerFieldInput** — renders the right input control for each tracker field type
+- **ObservationForm** — entity selector → tracker selector → dynamic fields → submit
+- **QuickLog** — compact form showing only required fields for fast entry
+- **BatchObservationForm** — pick a tracker, then add rows of entity + field values
+- **Timeline** — observation history with field values, tracker badges, delete + attribution
 - **EntityForm** — create/edit mode via optional `entity` prop
-- **Timeline** — observation history with optional delete + attribution
-- **BatchObservationForm** — dynamic rows, posts to batch endpoint
+- **RelationshipForm** — source (read-only) + type selector + target combobox
 
 ## Testing
 
@@ -177,19 +402,20 @@ Built on shadcn/ui with Radix primitives:
 - Real Supabase auth JWTs (not mocks) — tests create users via admin API
 - Tests invoke Hono app directly via `app.request()` — no HTTP server
 - Cleanup via service role client (bypasses RLS)
-- FK-safe cleanup order: audit_log → observations → edges → entities → vocabularies (non-system) → tenant_members → profiles → tenants → auth users
+- FK-safe cleanup order: audit_log → observations → entity_trackers → relationships → entities → tenant_members → profiles → tenants → auth users
 
 ### Key Helpers
 
 - `setupUserWithTenant(prefix?, name?)` — creates user + profile + tenant in one call
-- `getSystemVocabId(user, type, code)` — resolves system vocabulary UUID by type/code
+- `getEntityTypeId(user, code)` — resolves entity type UUID by code
+- `getTrackerId(user, code)` — resolves tracker UUID by code
 - `createEntityForUser(user, data)` — creates entity for user with tenant
-- `createObservationForUser(user, data)` — creates observation
-- `createEdgeForUser(user, data)` — creates edge
+- `createObservationForUser(user, data)` — creates observation with `{ entity_id, tracker, field_values }`
+- `createRelationshipForUser(user, data)` — creates relationship with `{ source_id, target_id, type }`
 
 ## Database Migrations
 
-Migrations live in `supabase/migrations/` and are numbered `20260221000000` through `20260221000010`.
+Migrations live in `supabase/migrations/`.
 
 ### Deploying to Hosted Supabase
 
