@@ -17,3 +17,14 @@ export interface Edge {
   source?: Pick<Entity, "id" | "name">;
   target?: Pick<Entity, "id" | "name">;
 }
+
+export interface EdgeUpdate {
+  target_id?: string;
+  edge_type?: string;
+  edge_type_id?: string;
+  label?: string;
+  weight?: number;
+  properties?: Record<string, unknown>;
+  valid_from?: string;
+  valid_to?: string;
+}

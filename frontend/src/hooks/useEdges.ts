@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { State } from "@/lib/state";
 import { getQueryCollectionState } from "@/lib/queryState";
 import { queryKeys } from "@/lib/queryKeys";
-import type { Edge } from "@/types/edge";
+import type { Edge, EdgeUpdate } from "@/types/edge";
 
 interface EdgeCreate {
   source_id: string;
@@ -44,6 +44,14 @@ export function useEdges(entityId?: string) {
     },
   });
 
+  const updateEdgeMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: EdgeUpdate }) =>
+      api.put<Edge>(`/api/v1/edges/${id}`, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.edges.all() });
+    },
+  });
+
   const deleteEdgeMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/api/v1/edges/${id}`),
     onSuccess: () => {
@@ -56,6 +64,7 @@ export function useEdges(entityId?: string) {
     state,
     error: query.error?.message ?? null,
     createEdge: createEdgeMutation.mutateAsync,
+    updateEdge: updateEdgeMutation.mutateAsync,
     deleteEdge: deleteEdgeMutation.mutateAsync,
     refetch: query.refetch,
   };

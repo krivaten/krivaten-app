@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,7 @@ import { Combobox } from "@/components/ui/combobox";
 import { toast } from "sonner";
 import { useEntities } from "@/hooks/useEntities";
 import { useVocabularies } from "@/hooks/useVocabularies";
+import type { Edge } from "@/types/edge";
 
 interface EdgeFormData {
   source_id: string;
@@ -33,15 +34,29 @@ interface Props {
   onSubmit: (edge: EdgeFormData) => Promise<unknown>;
   sourceEntityId: string;
   sourceEntityName: string;
+  edge?: Edge;
 }
 
-export function EdgeForm({ open, onOpenChange, onSubmit, sourceEntityId, sourceEntityName }: Props) {
+export function EdgeForm({ open, onOpenChange, onSubmit, sourceEntityId, sourceEntityName, edge }: Props) {
   const { entities } = useEntities();
   const { vocabularies: edgeTypes } = useVocabularies({ type: "edge_type" });
   const [targetId, setTargetId] = useState("");
   const [edgeTypeCode, setEdgeTypeCode] = useState("");
   const [label, setLabel] = useState("");
   const [loading, setLoading] = useState(false);
+  const isEdit = !!edge;
+
+  useEffect(() => {
+    if (open && edge) {
+      setTargetId(edge.target_id);
+      setEdgeTypeCode(edge.edge_type);
+      setLabel(edge.label || "");
+    } else if (open && !edge) {
+      setTargetId("");
+      setEdgeTypeCode("");
+      setLabel("");
+    }
+  }, [open, edge]);
 
   const targetOptions = entities
     .filter((e) => e.id !== sourceEntityId)
@@ -63,13 +78,15 @@ export function EdgeForm({ open, onOpenChange, onSubmit, sourceEntityId, sourceE
         edge_type: edgeTypeCode,
         label: label.trim() || undefined,
       });
-      toast.success("Connection created!");
-      setTargetId("");
-      setEdgeTypeCode("");
-      setLabel("");
+      toast.success(isEdit ? "Connection updated!" : "Connection created!");
+      if (!isEdit) {
+        setTargetId("");
+        setEdgeTypeCode("");
+        setLabel("");
+      }
       onOpenChange(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create connection");
+      toast.error(err instanceof Error ? err.message : `Failed to ${isEdit ? "update" : "create"} connection`);
     } finally {
       setLoading(false);
     }
@@ -79,7 +96,7 @@ export function EdgeForm({ open, onOpenChange, onSubmit, sourceEntityId, sourceE
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Connection</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit Connection" : "Add Connection"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -122,7 +139,7 @@ export function EdgeForm({ open, onOpenChange, onSubmit, sourceEntityId, sourceE
             />
           </div>
           <Button type="submit" disabled={loading || !targetId || !edgeTypeCode} className="w-full">
-            {loading ? "Creating..." : "Create Connection"}
+            {loading ? (isEdit ? "Saving..." : "Creating...") : (isEdit ? "Save Changes" : "Create Connection")}
           </Button>
         </form>
       </DialogContent>

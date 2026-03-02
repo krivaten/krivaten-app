@@ -113,6 +113,71 @@ edges.post("/api/v1/edges", async (c) => {
   return c.json(data, 201);
 });
 
+// PUT /api/v1/edges/:id — Update edge
+edges.put("/api/v1/edges/:id", async (c) => {
+  const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
+  const id = c.req.param("id");
+
+  let body: {
+    target_id?: string;
+    edge_type?: string;
+    edge_type_id?: string;
+    label?: string;
+    weight?: number;
+    properties?: Record<string, unknown>;
+    valid_from?: string;
+    valid_to?: string;
+  };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ detail: "Invalid JSON body" }, 400);
+  }
+
+  const updateData: Record<string, unknown> = {};
+  if (body.target_id !== undefined) updateData.target_id = body.target_id;
+  if (body.edge_type !== undefined) updateData.edge_type = body.edge_type;
+  if (body.label !== undefined) updateData.label = body.label;
+  if (body.weight !== undefined) updateData.weight = body.weight;
+  if (body.properties !== undefined) updateData.properties = body.properties;
+  if (body.valid_from !== undefined) updateData.valid_from = body.valid_from;
+  if (body.valid_to !== undefined) updateData.valid_to = body.valid_to;
+
+  if (Object.keys(updateData).length === 0) {
+    return c.json({ detail: "No fields to update" }, 400);
+  }
+
+  // Resolve edge_type_id from vocabulary if edge_type changed
+  if (body.edge_type) {
+    let edgeTypeId = body.edge_type_id ?? null;
+    if (!edgeTypeId) {
+      const { data: vocab } = await supabase
+        .from("vocabularies")
+        .select("id")
+        .eq("vocabulary_type", "edge_type")
+        .eq("code", body.edge_type)
+        .single();
+      if (vocab) {
+        edgeTypeId = vocab.id;
+      }
+    }
+    updateData.edge_type_id = edgeTypeId;
+  }
+
+  const { data, error } = await supabase
+    .from("edges")
+    .update(updateData)
+    .eq("id", id)
+    .select("*, source:entities!source_id(id, name), target:entities!target_id(id, name)")
+    .single();
+
+  if (error) {
+    return c.json({ detail: `Error updating edge: ${error.message}` }, 400);
+  }
+
+  return c.json(data);
+});
+
 // DELETE /api/v1/edges/:id — Hard delete edge
 edges.delete("/api/v1/edges/:id", async (c) => {
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));

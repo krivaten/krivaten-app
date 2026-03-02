@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import type { Entity, EntityCreate } from "@/types/entity";
+import type { Edge } from "@/types/edge";
 
 export default function EntityDetail() {
   const { id } = useParams<{ id: string }>();
@@ -25,6 +26,7 @@ export default function EntityDetail() {
   const [formOpen, setFormOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [edgeFormOpen, setEdgeFormOpen] = useState(false);
+  const [editingEdge, setEditingEdge] = useState<Edge | null>(null);
   const [page, setPage] = useState(1);
 
   const entityQuery = useQuery({
@@ -55,7 +57,7 @@ export default function EntityDetail() {
     deleteObservation,
   } = useObservations(id ? { subject_id: id, page, per_page: 20 } : undefined);
 
-  const { edges, createEdge, deleteEdge } = useEdges(id);
+  const { edges, createEdge, updateEdge, deleteEdge } = useEdges(id);
 
   if (entityState === State.PENDING) {
     return (
@@ -193,14 +195,24 @@ export default function EntityDetail() {
                         </span>
                       )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      className="text-xs text-muted-foreground hover:text-destructive"
-                      onClick={() => handleDeleteEdge(edge.id)}
-                    >
-                      Remove
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        className="text-xs text-muted-foreground"
+                        onClick={() => setEditingEdge(edge)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        className="text-xs text-muted-foreground hover:text-destructive"
+                        onClick={() => handleDeleteEdge(edge.id)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
                   </div>
                 );
               })}
@@ -242,6 +254,26 @@ export default function EntityDetail() {
         sourceEntityId={id!}
         sourceEntityName={entity.name}
       />
+
+      {editingEdge && (
+        <EdgeForm
+          open={!!editingEdge}
+          onOpenChange={(open) => { if (!open) setEditingEdge(null); }}
+          onSubmit={async (data) => {
+            await updateEdge({
+              id: editingEdge.id,
+              updates: {
+                target_id: data.target_id,
+                edge_type: data.edge_type,
+                label: data.label,
+              },
+            });
+          }}
+          sourceEntityId={id!}
+          sourceEntityName={entity.name}
+          edge={editingEdge}
+        />
+      )}
 
       <ObservationForm
         open={formOpen}
