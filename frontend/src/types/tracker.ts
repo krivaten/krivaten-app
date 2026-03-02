@@ -27,7 +27,32 @@ export interface Tracker {
   description: string | null;
   icon: string | null;
   is_system: boolean;
+  tenant_id: string | null;
   created_at: string;
   updated_at: string;
   fields?: TrackerField[];
+}
+
+export interface TrackerCreate {
+  code?: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  fields: TrackerFieldCreate[];
+}
+
+export interface TrackerFieldCreate {
+  id?: string;
+  code: string;
+  name: string;
+  field_type: FieldType;
+  options?: Array<{ value: string; label: string }> | null;
+  is_required: boolean;
+  position: number;
+}
+
+export interface EntityTypeTrackerAssociation {
+  tracker: Tracker;
+  position: number;
+  is_system_default: boolean;
 }

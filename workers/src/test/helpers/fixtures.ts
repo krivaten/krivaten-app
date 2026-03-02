@@ -1,6 +1,42 @@
 import { appGet, appPost } from "./request";
 import { authHeaders, createTestUser } from "./auth";
 
+/**
+ * Creates a custom tracker for a user who already has a tenant.
+ */
+export async function createTrackerForUser(
+  user: TestUser,
+  data: {
+    name: string;
+    code?: string;
+    description?: string;
+    fields?: Array<{
+      code: string;
+      name: string;
+      field_type: string;
+      options?: Array<{ value: string; label: string }>;
+      is_required?: boolean;
+      position?: number;
+    }>;
+  },
+): Promise<{
+  id: string;
+  code: string;
+  name: string;
+  tenant_id: string;
+  is_system: boolean;
+  fields: unknown[];
+  [key: string]: unknown;
+}> {
+  const headers = authHeaders(user.accessToken);
+  const res = await appPost("/api/v1/trackers", data, headers);
+  if (res.status !== 201) {
+    const body = await res.json();
+    throw new Error(`Failed to create tracker: ${JSON.stringify(body)}`);
+  }
+  return res.json();
+}
+
 export interface TestUser {
   id: string;
   email: string;

@@ -297,11 +297,22 @@ entities.get("/api/v1/entities/:id/trackers", async (c) => {
     overrideMap.set(o.tracker_id, { is_enabled: o.is_enabled, tracker: o.tracker });
   }
 
+  // Deduplicate defaults by tracker_id (tenant row overrides system)
+  const defaultRows = defaults || [];
+  const deduped = new Map<string, (typeof defaultRows)[number]>();
+  for (const d of defaultRows) {
+    const existing = deduped.get(d.tracker_id);
+    if (!existing || (d as Record<string, unknown>).tenant_id !== null) {
+      deduped.set(d.tracker_id, d);
+    }
+  }
+  const dedupedDefaults = Array.from(deduped.values());
+
   // Merge: defaults + overrides
   const result: Array<{ tracker: unknown; is_default: boolean; is_enabled: boolean }> = [];
 
   // Add default trackers
-  for (const d of defaults || []) {
+  for (const d of dedupedDefaults) {
     const override = overrideMap.get(d.tracker_id);
     result.push({
       tracker: d.tracker,

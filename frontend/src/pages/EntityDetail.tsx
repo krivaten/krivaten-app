@@ -13,6 +13,7 @@ import { useRelatedEntities } from "@/hooks/useRelatedEntities";
 import { EntityForm } from "@/components/entities/EntityForm";
 import { RelationshipForm } from "@/components/relationships/RelationshipForm";
 import { ObservationForm } from "@/components/observations/ObservationForm";
+import { AddTrackerToEntityDialog } from "@/components/trackers/AddTrackerToEntityDialog";
 import { Timeline } from "@/components/observations/Timeline";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ export default function EntityDetail() {
   const [relFormOpen, setRelFormOpen] = useState(false);
   const [editingRelationship, setEditingRelationship] = useState<Relationship | null>(null);
   const [page, setPage] = useState(1);
+  const [addTrackerOpen, setAddTrackerOpen] = useState(false);
 
   const entityQuery = useQuery({
     queryKey: queryKeys.entities.detail(id!),
@@ -164,19 +166,37 @@ export default function EntityDetail() {
         </Card>
       )}
 
-      {entityTrackers.length > 0 && (
-        <Card>
-          <CardHeader>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
             <CardTitle className="text-base">Trackers</CardTitle>
-          </CardHeader>
-          <CardContent>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAddTrackerOpen(true)}
+            >
+              Add Tracker
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {entityTrackers.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No trackers configured. Click "Add Tracker" to get started.
+            </p>
+          ) : (
             <div className="space-y-3">
               {entityTrackers.map((et) => (
                 <div
                   key={et.tracker.id}
                   className="flex items-center justify-between"
                 >
-                  <Label className="text-sm">{et.tracker.name}</Label>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm">{et.tracker.name}</Label>
+                    {et.is_default && (
+                      <Badge variant="secondary" className="text-xs">Default</Badge>
+                    )}
+                  </div>
                   <Switch
                     checked={et.is_enabled}
                     onCheckedChange={(checked) =>
@@ -186,9 +206,9 @@ export default function EntityDetail() {
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -391,6 +411,20 @@ export default function EntityDetail() {
           return createObservation(obs);
         }}
         defaultEntityId={id}
+      />
+
+      <AddTrackerToEntityDialog
+        entityId={id!}
+        currentTrackerIds={new Set(entityTrackers.map((et) => et.tracker.id))}
+        open={addTrackerOpen}
+        onOpenChange={setAddTrackerOpen}
+        onAdd={async (trackerIds) => {
+          const overrides = trackerIds.map((tracker_id) => ({
+            tracker_id,
+            is_enabled: true,
+          }));
+          await updateTrackers(overrides);
+        }}
       />
     </div>
   );

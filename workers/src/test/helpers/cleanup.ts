@@ -10,6 +10,10 @@ export async function cleanupAllData(): Promise<void> {
   await adminClient.from("audit_log").delete().neq("id", "00000000-0000-0000-0000-000000000000");
   await adminClient.from("observations").delete().neq("id", "00000000-0000-0000-0000-000000000000");
   await adminClient.from("entity_trackers").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  // Delete tenant-scoped entity_type_trackers (system defaults preserved)
+  await adminClient.from("entity_type_trackers").delete().not("tenant_id", "is", null);
+  // Delete tenant-scoped trackers (CASCADE deletes tracker_fields)
+  await adminClient.from("trackers").delete().not("tenant_id", "is", null);
   await adminClient.from("relationships").delete().neq("id", "00000000-0000-0000-0000-000000000000");
   await adminClient.from("entities").delete().neq("id", "00000000-0000-0000-0000-000000000000");
   await adminClient.from("tenant_members").delete().neq("id", "00000000-0000-0000-0000-000000000000");

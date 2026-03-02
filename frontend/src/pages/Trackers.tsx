@@ -3,6 +3,7 @@ import { useTrackers, useTracker } from "@/hooks/useTrackers";
 import { useEntityTypes } from "@/hooks/useEntityTypes";
 import { State } from "@/lib/state";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -11,6 +12,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { TrackerForm } from "@/components/trackers/TrackerForm";
+import { EntityTypeDefaultsDialog } from "@/components/trackers/EntityTypeDefaultsDialog";
+import { toast } from "sonner";
+import type { Tracker, TrackerCreate } from "@/types/tracker";
 
 const FIELD_TYPE_LABELS: Record<string, string> = {
   text: "Text",
@@ -82,9 +87,13 @@ function TrackerDetail({ trackerId, onClose }: { trackerId: string; onClose: () 
 export default function Trackers() {
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>("all");
   const [selectedTrackerId, setSelectedTrackerId] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingTracker, setEditingTracker] = useState<Tracker | undefined>(undefined);
+  const [deletingTracker, setDeletingTracker] = useState<Tracker | null>(null);
+  const [defaultsEntityTypeId, setDefaultsEntityTypeId] = useState<string | null>(null);
 
   const { entityTypes } = useEntityTypes();
-  const { trackers, state } = useTrackers(
+  const { trackers, state, createTracker, updateTracker, deleteTracker } = useTrackers(
     entityTypeFilter === "all" ? undefined : entityTypeFilter,
   );
 
@@ -93,9 +102,59 @@ export default function Trackers() {
     ...entityTypes.map((t) => ({ value: t.code, label: t.name })),
   ];
 
+  const selectedEntityType = entityTypeFilter !== "all"
+    ? entityTypes.find((t) => t.code === entityTypeFilter)
+    : null;
+
+  function handleCardClick(tracker: Tracker) {
+    if (tracker.is_system) {
+      setSelectedTrackerId(tracker.id);
+    } else {
+      setEditingTracker(tracker);
+      setFormOpen(true);
+    }
+  }
+
+  function handleCreate() {
+    setEditingTracker(undefined);
+    setFormOpen(true);
+  }
+
+  async function handleFormSubmit(data: TrackerCreate) {
+    if (editingTracker) {
+      await updateTracker({ id: editingTracker.id, data });
+    } else {
+      await createTracker(data);
+    }
+  }
+
+  async function handleDelete() {
+    if (!deletingTracker) return;
+    try {
+      await deleteTracker(deletingTracker.id);
+      toast.success("Tracker deleted!");
+      setDeletingTracker(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete tracker");
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Trackers</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Trackers</h1>
+        <div className="flex gap-2">
+          {selectedEntityType && (
+            <Button
+              variant="outline"
+              onClick={() => setDefaultsEntityTypeId(selectedEntityType.id)}
+            >
+              Manage Defaults
+            </Button>
+          )}
+          <Button onClick={handleCreate}>Create Tracker</Button>
+        </div>
+      </div>
 
       <Tabs value={entityTypeFilter} onValueChange={setEntityTypeFilter}>
         <TabsList>
@@ -124,10 +183,19 @@ export default function Trackers() {
           <Card
             key={tracker.id}
             className="cursor-pointer hover:border-foreground/20 transition-colors"
-            onClick={() => setSelectedTrackerId(tracker.id)}
+            onClick={() => handleCardClick(tracker)}
           >
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">{tracker.name}</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">{tracker.name}</CardTitle>
+                <div className="flex items-center gap-1">
+                  {tracker.is_system ? (
+                    <Badge variant="secondary" className="text-xs">System</Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-xs">Custom</Badge>
+                  )}
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {tracker.description && (
@@ -135,19 +203,34 @@ export default function Trackers() {
                   {tracker.description}
                 </p>
               )}
-              <div className="flex flex-wrap gap-1">
-                {(tracker.fields ?? [])
-                  .sort((a, b) => a.position - b.position)
-                  .slice(0, 4)
-                  .map((f) => (
-                    <Badge key={f.id} variant="outline" className="text-xs">
-                      {f.name}
+              <div className="flex items-center justify-between">
+                <div className="flex flex-wrap gap-1">
+                  {(tracker.fields ?? [])
+                    .sort((a, b) => a.position - b.position)
+                    .slice(0, 4)
+                    .map((f) => (
+                      <Badge key={f.id} variant="outline" className="text-xs">
+                        {f.name}
+                      </Badge>
+                    ))}
+                  {(tracker.fields ?? []).length > 4 && (
+                    <Badge variant="outline" className="text-xs">
+                      +{(tracker.fields ?? []).length - 4} more
                     </Badge>
-                  ))}
-                {(tracker.fields ?? []).length > 4 && (
-                  <Badge variant="outline" className="text-xs">
-                    +{(tracker.fields ?? []).length - 4} more
-                  </Badge>
+                  )}
+                </div>
+                {!tracker.is_system && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeletingTracker(tracker);
+                    }}
+                  >
+                    Delete
+                  </Button>
                 )}
               </div>
             </CardContent>
@@ -159,6 +242,46 @@ export default function Trackers() {
         <TrackerDetail
           trackerId={selectedTrackerId}
           onClose={() => setSelectedTrackerId(null)}
+        />
+      )}
+
+      <TrackerForm
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        onSubmit={handleFormSubmit}
+        tracker={editingTracker}
+      />
+
+      {/* Delete confirmation */}
+      {deletingTracker && (
+        <Dialog open onOpenChange={(open) => !open && setDeletingTracker(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Tracker</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to delete <strong>{deletingTracker.name}</strong>?
+              This cannot be undone. Trackers with existing observations cannot be deleted.
+            </p>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setDeletingTracker(null)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleDelete}>
+                Delete
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Entity type defaults dialog */}
+      {defaultsEntityTypeId && selectedEntityType && (
+        <EntityTypeDefaultsDialog
+          entityTypeId={defaultsEntityTypeId}
+          entityTypeName={selectedEntityType.name}
+          open={!!defaultsEntityTypeId}
+          onOpenChange={(open) => !open && setDefaultsEntityTypeId(null)}
         />
       )}
     </div>

@@ -17,12 +17,14 @@ async function resolveTrackerId(
   supabase: ReturnType<typeof createSupabaseClientWithAuth>,
   code: string,
 ): Promise<string | null> {
+  // When tenant + system trackers share a code, prefer tenant's
   const { data } = await supabase
     .from("trackers")
-    .select("id")
+    .select("id, tenant_id")
     .eq("code", code)
-    .single();
-  return data?.id ?? null;
+    .order("tenant_id", { ascending: false, nullsFirst: false })
+    .limit(1);
+  return data?.[0]?.id ?? null;
 }
 
 /**

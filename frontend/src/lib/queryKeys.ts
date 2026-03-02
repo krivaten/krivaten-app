@@ -50,4 +50,9 @@ export const queryKeys = {
     list: (entityId?: string) =>
       ["relationships", "list", entityId ?? "all"] as const,
   },
+  entityTypeTrackers: {
+    all: () => ["entityTypeTrackers"] as const,
+    list: (entityTypeId: string) =>
+      ["entityTypeTrackers", "list", entityTypeId] as const,
+  },
 };
