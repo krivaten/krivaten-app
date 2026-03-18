@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PageTitle } from "@/components/PageTitle";
 
 export default function Observations() {
   const { user } = useAuth();
@@ -59,16 +60,18 @@ export default function Observations() {
   } = useObservations(filters);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Metrics</h1>
+    <>
+      <PageTitle
+        title="Metrics"
+        description="Log and review your observations for entities."
+      >
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setBatchOpen(true)}>
             Batch Log
           </Button>
           <Button onClick={() => setFormOpen(true)}>Log Observation</Button>
         </div>
-      </div>
+      </PageTitle>
 
       <div className="flex flex-wrap gap-3">
         <Combobox
@@ -163,9 +166,11 @@ export default function Observations() {
       <BatchObservationForm
         open={batchOpen}
         onOpenChange={setBatchOpen}
-        onSuccess={() => { refetch(); }}
+        onSuccess={() => {
+          refetch();
+        }}
         onBatchSubmit={batchCreateObservations}
       />
-    </div>
+    </>
   );
 }

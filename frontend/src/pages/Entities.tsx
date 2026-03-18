@@ -1,10 +1,14 @@
 import { EntityBrowser } from "@/components/entities/EntityBrowser";
+import { PageTitle } from "@/components/PageTitle";
 
 export default function Entities() {
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Entities</h1>
+    <>
+      <PageTitle
+        title="Entities"
+        description="What you are tracking (e.g., people, places, or things)."
+      />
       <EntityBrowser />
-    </div>
+    </>
   );
 }

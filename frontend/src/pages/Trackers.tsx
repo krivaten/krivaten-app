@@ -16,6 +16,7 @@ import { TrackerForm } from "@/components/trackers/TrackerForm";
 import { EntityTypeDefaultsDialog } from "@/components/trackers/EntityTypeDefaultsDialog";
 import { toast } from "sonner";
 import type { Tracker, TrackerCreate } from "@/types/tracker";
+import { PageTitle } from "@/components/PageTitle";
 
 const FIELD_TYPE_LABELS: Record<string, string> = {
   text: "Text",
@@ -27,7 +28,13 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   datetime: "Date/Time",
 };
 
-function TrackerDetail({ trackerId, onClose }: { trackerId: string; onClose: () => void }) {
+function TrackerDetail({
+  trackerId,
+  onClose,
+}: {
+  trackerId: string;
+  onClose: () => void;
+}) {
   const { tracker } = useTracker(trackerId);
 
   if (!tracker) return null;
@@ -86,25 +93,31 @@ function TrackerDetail({ trackerId, onClose }: { trackerId: string; onClose: () 
 
 export default function Trackers() {
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>("all");
-  const [selectedTrackerId, setSelectedTrackerId] = useState<string | null>(null);
+  const [selectedTrackerId, setSelectedTrackerId] = useState<string | null>(
+    null,
+  );
   const [formOpen, setFormOpen] = useState(false);
-  const [editingTracker, setEditingTracker] = useState<Tracker | undefined>(undefined);
+  const [editingTracker, setEditingTracker] = useState<Tracker | undefined>(
+    undefined,
+  );
   const [deletingTracker, setDeletingTracker] = useState<Tracker | null>(null);
-  const [defaultsEntityTypeId, setDefaultsEntityTypeId] = useState<string | null>(null);
+  const [defaultsEntityTypeId, setDefaultsEntityTypeId] = useState<
+    string | null
+  >(null);
 
   const { entityTypes } = useEntityTypes();
-  const { trackers, state, createTracker, updateTracker, deleteTracker } = useTrackers(
-    entityTypeFilter === "all" ? undefined : entityTypeFilter,
-  );
+  const { trackers, state, createTracker, updateTracker, deleteTracker } =
+    useTrackers(entityTypeFilter === "all" ? undefined : entityTypeFilter);
 
   const tabs = [
     { value: "all", label: "All" },
     ...entityTypes.map((t) => ({ value: t.code, label: t.name })),
   ];
 
-  const selectedEntityType = entityTypeFilter !== "all"
-    ? entityTypes.find((t) => t.code === entityTypeFilter)
-    : null;
+  const selectedEntityType =
+    entityTypeFilter !== "all"
+      ? entityTypes.find((t) => t.code === entityTypeFilter)
+      : null;
 
   function handleCardClick(tracker: Tracker) {
     if (tracker.is_system) {
@@ -135,14 +148,18 @@ export default function Trackers() {
       toast.success("Tracker deleted!");
       setDeletingTracker(null);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to delete tracker");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to delete tracker",
+      );
     }
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Trackers</h1>
+    <>
+      <PageTitle
+        title="Trackers"
+        description="Types of observations you can log for your entities."
+      >
         <div className="flex gap-2">
           {selectedEntityType && (
             <Button
@@ -154,7 +171,7 @@ export default function Trackers() {
           )}
           <Button onClick={handleCreate}>Create Tracker</Button>
         </div>
-      </div>
+      </PageTitle>
 
       <Tabs value={entityTypeFilter} onValueChange={setEntityTypeFilter}>
         <TabsList>
@@ -190,9 +207,13 @@ export default function Trackers() {
                 <CardTitle className="text-base">{tracker.name}</CardTitle>
                 <div className="flex items-center gap-1">
                   {tracker.is_system ? (
-                    <Badge variant="secondary" className="text-xs">System</Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      System
+                    </Badge>
                   ) : (
-                    <Badge variant="outline" className="text-xs">Custom</Badge>
+                    <Badge variant="outline" className="text-xs">
+                      Custom
+                    </Badge>
                   )}
                 </div>
               </div>
@@ -260,11 +281,15 @@ export default function Trackers() {
               <DialogTitle>Delete Tracker</DialogTitle>
             </DialogHeader>
             <p className="text-sm text-muted-foreground">
-              Are you sure you want to delete <strong>{deletingTracker.name}</strong>?
-              This cannot be undone. Trackers with existing observations cannot be deleted.
+              Are you sure you want to delete{" "}
+              <strong>{deletingTracker.name}</strong>? This cannot be undone.
+              Trackers with existing observations cannot be deleted.
             </p>
             <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={() => setDeletingTracker(null)}>
+              <Button
+                variant="outline"
+                onClick={() => setDeletingTracker(null)}
+              >
                 Cancel
               </Button>
               <Button variant="destructive" onClick={handleDelete}>
@@ -284,6 +309,6 @@ export default function Trackers() {
           onOpenChange={(open) => !open && setDefaultsEntityTypeId(null)}
         />
       )}
-    </div>
+    </>
   );
 }

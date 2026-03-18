@@ -60,7 +60,7 @@ export function AuthenticatedLayout() {
           </div>
         </div>
       </nav>
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 space-y-6">
         <TenantProvider>
           <Outlet />
         </TenantProvider>

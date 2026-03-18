@@ -5,12 +5,18 @@ import { useObservations } from "@/hooks/useObservations";
 import { QuickLog } from "@/components/observations/QuickLog";
 import { Timeline } from "@/components/observations/Timeline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageTitle } from "@/components/PageTitle";
 
 export default function Dashboard() {
   const { tenant } = useTenantContext();
   const { entities } = useEntities();
   const [page] = useState(1);
-  const { observations, count, state: obsState, createObservation } = useObservations({
+  const {
+    observations,
+    count,
+    state: obsState,
+    createObservation,
+  } = useObservations({
     page,
     per_page: 10,
   });
@@ -22,15 +28,11 @@ export default function Dashboard() {
   }, {});
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-display lowercase tracking-wider mb-1">
-          {tenant.name}
-        </h1>
-        <p className="text-muted-foreground">
-          {entities.length} {entities.length === 1 ? "entity" : "entities"} tracked
-        </p>
-      </div>
+    <>
+      <PageTitle
+        title={tenant.name}
+        description={`${entities.length} ${entities.length === 1 ? "entity" : "entities"} tracked`}
+      />
 
       {Object.keys(typeCounts).length > 0 && (
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
@@ -63,6 +65,6 @@ export default function Dashboard() {
           />
         </div>
       </div>
-    </div>
+    </>
   );
 }

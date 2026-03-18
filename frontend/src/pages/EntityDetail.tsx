@@ -31,7 +31,8 @@ export default function EntityDetail() {
   const [formOpen, setFormOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [relFormOpen, setRelFormOpen] = useState(false);
-  const [editingRelationship, setEditingRelationship] = useState<Relationship | null>(null);
+  const [editingRelationship, setEditingRelationship] =
+    useState<Relationship | null>(null);
   const [page, setPage] = useState(1);
   const [addTrackerOpen, setAddTrackerOpen] = useState(false);
 
@@ -63,8 +64,12 @@ export default function EntityDetail() {
     deleteObservation,
   } = useObservations(id ? { entity_id: id, page, per_page: 20 } : undefined);
 
-  const { relationships, createRelationship, updateRelationship, deleteRelationship } =
-    useRelationships(id);
+  const {
+    relationships,
+    createRelationship,
+    updateRelationship,
+    deleteRelationship,
+  } = useRelationships(id);
 
   const { trackers: entityTrackers, updateTrackers } = useEntityTrackers(
     id ?? "",
@@ -117,7 +122,7 @@ export default function EntityDetail() {
   }
 
   return (
-    <div className="space-y-6">
+    <>
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-3 mb-1">
@@ -194,7 +199,9 @@ export default function EntityDetail() {
                   <div className="flex items-center gap-2">
                     <Label className="text-sm">{et.tracker.name}</Label>
                     {et.is_default && (
-                      <Badge variant="secondary" className="text-xs">Default</Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        Default
+                      </Badge>
                     )}
                   </div>
                   <Switch
@@ -232,9 +239,7 @@ export default function EntityDetail() {
         </CardHeader>
         <CardContent>
           {relationships.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No connections yet.
-            </p>
+            <p className="text-sm text-muted-foreground">No connections yet.</p>
           ) : (
             <div className="space-y-2">
               {relationships.map((rel) => {
@@ -333,7 +338,9 @@ export default function EntityDetail() {
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span>{rel.relationship_type}</span>
-                    <span>{rel.direction === "outgoing" ? "\u2192" : "\u2190"}</span>
+                    <span>
+                      {rel.direction === "outgoing" ? "\u2192" : "\u2190"}
+                    </span>
                     {rel.depth > 1 && (
                       <Badge variant="secondary" className="text-xs">
                         depth {rel.depth}
@@ -384,7 +391,9 @@ export default function EntityDetail() {
       {editingRelationship && (
         <RelationshipForm
           open={!!editingRelationship}
-          onOpenChange={(open) => { if (!open) setEditingRelationship(null); }}
+          onOpenChange={(open) => {
+            if (!open) setEditingRelationship(null);
+          }}
           onSubmit={async (data) => {
             await updateRelationship({
               id: editingRelationship.id,
@@ -426,6 +435,6 @@ export default function EntityDetail() {
           await updateTrackers(overrides);
         }}
       />
-    </div>
+    </>
   );
 }
