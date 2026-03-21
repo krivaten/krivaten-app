@@ -4,6 +4,8 @@ import { State } from "@/lib/state";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantContext } from "@/contexts/TenantContext";
 import { AvatarUpload } from "@/components/AvatarUpload";
+import { ChangeEmailForm } from "@/components/ChangeEmailForm";
+import { ChangePasswordForm } from "@/components/ChangePasswordForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { PageTitle } from "@/components/PageTitle";
 
 export default function ProfileEdit() {
   const { user } = useAuth();
@@ -60,7 +63,9 @@ export default function ProfileEdit() {
       await updateTenant({ name: tenantName.trim() });
       toast.success("Space updated");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update space");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to update space",
+      );
     } finally {
       setSavingTenant(false);
     }
@@ -75,10 +80,11 @@ export default function ProfileEdit() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-3xl font-display lowercase tracking-wider">
-        Profile
-      </h1>
+    <>
+      <PageTitle
+        title="Profile"
+        description="Update your personal information and space settings."
+      />
       <Card>
         <CardHeader>
           <CardTitle>Your Information</CardTitle>
@@ -136,11 +142,21 @@ export default function ProfileEdit() {
           <p className="text-xs text-muted-foreground">
             Created {new Date(tenant.created_at).toLocaleDateString()}
           </p>
-          <Button onClick={handleSaveTenant} disabled={savingTenant || !tenantName.trim()}>
+          <Button
+            onClick={handleSaveTenant}
+            disabled={savingTenant || !tenantName.trim()}
+          >
             {savingTenant ? "Saving..." : "Save Space"}
           </Button>
         </CardContent>
       </Card>
-    </div>
+
+      {user?.identities?.some((id) => id.provider === "email") && (
+        <>
+          <ChangeEmailForm currentEmail={user.email!} />
+          <ChangePasswordForm email={user.email!} />
+        </>
+      )}
+    </>
   );
 }
