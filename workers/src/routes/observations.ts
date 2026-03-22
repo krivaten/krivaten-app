@@ -8,18 +8,18 @@ const observations = new Hono<{ Bindings: Env; Variables: Variables }>();
 observations.use("*", authMiddleware);
 
 const OBSERVATION_SELECT =
-  "*, entity:entities!entity_id(id, name), tracker:trackers!tracker_id(id, code, name)";
+  "*, entity:entities!entity_id(id, name), metric:metrics!metric_id(id, code, name)";
 
 /**
- * Resolve a tracker code string to its UUID from the trackers table.
+ * Resolve a metric code string to its UUID from the metrics table.
  */
-async function resolveTrackerId(
+async function resolveMetricId(
   supabase: ReturnType<typeof createSupabaseClientWithAuth>,
   code: string,
 ): Promise<string | null> {
-  // When tenant + system trackers share a code, prefer tenant's
+  // When tenant + system metrics share a code, prefer tenant's
   const { data } = await supabase
-    .from("trackers")
+    .from("metrics")
     .select("id, tenant_id")
     .eq("code", code)
     .order("tenant_id", { ascending: false, nullsFirst: false })
@@ -28,18 +28,18 @@ async function resolveTrackerId(
 }
 
 /**
- * Validate that all required fields for a tracker are present in field_values.
+ * Validate that all required fields for a metric are present in field_values.
  * Returns an error message string if validation fails, null otherwise.
  */
 async function validateRequiredFields(
   supabase: ReturnType<typeof createSupabaseClientWithAuth>,
-  trackerId: string,
+  metricId: string,
   fieldValues: Record<string, unknown>,
 ): Promise<string | null> {
   const { data: fields } = await supabase
-    .from("tracker_fields")
+    .from("metric_fields")
     .select("code, name, is_required")
-    .eq("tracker_id", trackerId)
+    .eq("metric_id", metricId)
     .eq("is_required", true);
 
   if (!fields || fields.length === 0) return null;
@@ -83,15 +83,15 @@ observations.get("/api/v1/observations", async (c) => {
   const entityId = c.req.query("entity_id");
   if (entityId) query = query.eq("entity_id", entityId);
 
-  // Filter by tracker code or tracker_id
-  const trackerCode = c.req.query("tracker");
-  const trackerId = c.req.query("tracker_id");
-  if (trackerId) {
-    query = query.eq("tracker_id", trackerId);
-  } else if (trackerCode) {
-    const resolvedId = await resolveTrackerId(supabase, trackerCode);
+  // Filter by metric code or metric_id
+  const metricCode = c.req.query("metric");
+  const metricId = c.req.query("metric_id");
+  if (metricId) {
+    query = query.eq("metric_id", metricId);
+  } else if (metricCode) {
+    const resolvedId = await resolveMetricId(supabase, metricCode);
     if (resolvedId) {
-      query = query.eq("tracker_id", resolvedId);
+      query = query.eq("metric_id", resolvedId);
     } else {
       return c.json({ data: [], count: 0, page, per_page: perPage });
     }
@@ -149,8 +149,8 @@ observations.post("/api/v1/observations", async (c) => {
 
   let body: {
     entity_id: string;
-    tracker_id?: string;
-    tracker?: string;
+    metric_id?: string;
+    metric?: string;
     observed_at?: string;
     field_values: Record<string, unknown>;
     notes?: string;
@@ -169,26 +169,26 @@ observations.post("/api/v1/observations", async (c) => {
     return c.json({ detail: "field_values is required" }, 400);
   }
 
-  // Resolve tracker code to ID if needed
-  let trackerId = body.tracker_id;
-  if (!trackerId && body.tracker) {
-    trackerId = (await resolveTrackerId(supabase, body.tracker)) ?? undefined;
-    if (!trackerId) {
+  // Resolve metric code to ID if needed
+  let metricId = body.metric_id;
+  if (!metricId && body.metric) {
+    metricId = (await resolveMetricId(supabase, body.metric)) ?? undefined;
+    if (!metricId) {
       return c.json(
-        { detail: `Invalid tracker: "${body.tracker}"` },
+        { detail: `Invalid metric: "${body.metric}"` },
         400,
       );
     }
   }
 
-  if (!trackerId) {
-    return c.json({ detail: "tracker_id or tracker is required" }, 400);
+  if (!metricId) {
+    return c.json({ detail: "metric_id or metric is required" }, 400);
   }
 
   // Validate required fields
   const validationError = await validateRequiredFields(
     supabase,
-    trackerId,
+    metricId,
     body.field_values,
   );
   if (validationError) {
@@ -200,7 +200,7 @@ observations.post("/api/v1/observations", async (c) => {
     .insert({
       tenant_id: tenantId,
       entity_id: body.entity_id,
-      tracker_id: trackerId,
+      metric_id: metricId,
       observer_id: user.id,
       observed_at: body.observed_at || new Date().toISOString(),
       field_values: body.field_values,
@@ -234,8 +234,8 @@ observations.post("/api/v1/observations/batch", async (c) => {
   let body: {
     observations: Array<{
       entity_id: string;
-      tracker_id?: string;
-      tracker?: string;
+      metric_id?: string;
+      metric?: string;
       observed_at?: string;
       field_values: Record<string, unknown>;
       notes?: string;
@@ -251,18 +251,18 @@ observations.post("/api/v1/observations/batch", async (c) => {
     return c.json({ detail: "observations array is required" }, 400);
   }
 
-  // Resolve tracker codes and build insert rows
+  // Resolve metric codes and build insert rows
   const enriched = await Promise.all(
     body.observations.map(async (obs) => {
-      let trackerId = obs.tracker_id;
-      if (!trackerId && obs.tracker) {
-        trackerId =
-          (await resolveTrackerId(supabase, obs.tracker)) ?? undefined;
+      let metricId = obs.metric_id;
+      if (!metricId && obs.metric) {
+        metricId =
+          (await resolveMetricId(supabase, obs.metric)) ?? undefined;
       }
       return {
         tenant_id: tenantId,
         entity_id: obs.entity_id,
-        tracker_id: trackerId,
+        metric_id: metricId,
         observer_id: user.id,
         observed_at: obs.observed_at || new Date().toISOString(),
         field_values: obs.field_values || {},

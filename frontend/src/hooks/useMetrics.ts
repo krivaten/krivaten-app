@@ -4,19 +4,19 @@ import { api } from "@/lib/api";
 import { State } from "@/lib/state";
 import { getQueryCollectionState, getQuerySingleState } from "@/lib/queryState";
 import { queryKeys } from "@/lib/queryKeys";
-import type { Tracker, TrackerCreate } from "@/types/tracker";
+import type { Metric, MetricCreate } from "@/types/metric";
 
-export function useTrackers(entityType?: string) {
+export function useMetrics(entityType?: string) {
   const { session, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: queryKeys.trackers.list(entityType),
+    queryKey: queryKeys.metrics.list(entityType),
     queryFn: () => {
       const params = new URLSearchParams();
       if (entityType) params.set("entity_type", entityType);
       const qs = params.toString();
-      return api.get<Tracker[]>(`/api/v1/trackers${qs ? `?${qs}` : ""}`);
+      return api.get<Metric[]>(`/api/v1/metrics${qs ? `?${qs}` : ""}`);
     },
     enabled: !authLoading && !!session,
   });
@@ -25,45 +25,45 @@ export function useTrackers(entityType?: string) {
     !authLoading && !session ? State.NONE : getQueryCollectionState(query);
 
   const createMutation = useMutation({
-    mutationFn: (data: TrackerCreate) => api.post<Tracker>("/api/v1/trackers", data),
+    mutationFn: (data: MetricCreate) => api.post<Metric>("/api/v1/metrics", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.trackers.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.metrics.all() });
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<TrackerCreate> }) =>
-      api.put<Tracker>(`/api/v1/trackers/${id}`, data),
+    mutationFn: ({ id, data }: { id: string; data: Partial<MetricCreate> }) =>
+      api.put<Metric>(`/api/v1/metrics/${id}`, data),
     onSuccess: (_, { id }) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.trackers.all() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.trackers.detail(id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.metrics.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.metrics.detail(id) });
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/api/v1/trackers/${id}`),
+    mutationFn: (id: string) => api.delete(`/api/v1/metrics/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.trackers.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.metrics.all() });
     },
   });
 
   return {
-    trackers: query.data ?? [],
+    metrics: query.data ?? [],
     state,
     error: query.error?.message ?? null,
     refetch: query.refetch,
-    createTracker: createMutation.mutateAsync,
-    updateTracker: updateMutation.mutateAsync,
-    deleteTracker: deleteMutation.mutateAsync,
+    createMetric: createMutation.mutateAsync,
+    updateMetric: updateMutation.mutateAsync,
+    deleteMetric: deleteMutation.mutateAsync,
   };
 }
 
-export function useTracker(id: string) {
+export function useMetric(id: string) {
   const { session, loading: authLoading } = useAuth();
 
   const query = useQuery({
-    queryKey: queryKeys.trackers.detail(id),
-    queryFn: () => api.get<Tracker>(`/api/v1/trackers/${id}`),
+    queryKey: queryKeys.metrics.detail(id),
+    queryFn: () => api.get<Metric>(`/api/v1/metrics/${id}`),
     enabled: !authLoading && !!session && !!id,
   });
 
@@ -71,7 +71,7 @@ export function useTracker(id: string) {
     !authLoading && !session ? State.NONE : getQuerySingleState(query);
 
   return {
-    tracker: query.data ?? null,
+    metric: query.data ?? null,
     state,
     error: query.error?.message ?? null,
   };

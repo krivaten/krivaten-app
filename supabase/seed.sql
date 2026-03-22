@@ -1,5 +1,5 @@
 -- ============================================================================
--- Seed Data: Entity Types, Trackers, Tracker Fields, Entity Type Trackers
+-- Seed Data: Entity Types, Metrics, Metric Fields, Entity Type Metrics
 -- ============================================================================
 
 -- --------------------------------------------------------------------------
@@ -16,9 +16,9 @@ INSERT INTO public.entity_types (code, name, description, icon, is_system) VALUE
   ('process', 'Process', 'A repeatable workflow', 'workflow', TRUE);
 
 -- --------------------------------------------------------------------------
--- Trackers (18)
+-- Metrics (18)
 -- --------------------------------------------------------------------------
-INSERT INTO public.trackers (code, name, description, icon, is_system) VALUES
+INSERT INTO public.metrics (code, name, description, icon, is_system) VALUES
   ('behavior', 'Behavior', 'Track behavioral observations', 'activity', TRUE),
   ('diet', 'Diet', 'Track food and nutrition intake', 'utensils', TRUE),
   ('sleep', 'Sleep', 'Track sleep patterns and quality', 'moon', TRUE),
@@ -39,13 +39,13 @@ INSERT INTO public.trackers (code, name, description, icon, is_system) VALUES
   ('quality', 'Quality', 'Track quality metrics', 'badge-check', TRUE);
 
 -- --------------------------------------------------------------------------
--- Tracker Fields
+-- Metric Fields
 -- --------------------------------------------------------------------------
 
 -- behavior fields
-INSERT INTO public.tracker_fields (tracker_id, code, name, field_type, options, is_required, position)
+INSERT INTO public.metric_fields (metric_id, code, name, field_type, options, is_required, position)
 SELECT t.id, f.code, f.name, f.field_type, f.options, f.is_required, f.position
-FROM public.trackers t
+FROM public.metrics t
 CROSS JOIN (VALUES
   ('type', 'Type', 'multi_select', '[{"value":"hitting","label":"Hitting"},{"value":"screaming","label":"Screaming"},{"value":"throwing","label":"Throwing"},{"value":"biting","label":"Biting"},{"value":"kicking","label":"Kicking"},{"value":"running_away","label":"Running Away"},{"value":"other","label":"Other"}]'::jsonb, FALSE, 0),
   ('intensity', 'Intensity', 'single_select', '[{"value":"mild","label":"Mild"},{"value":"moderate","label":"Moderate"},{"value":"severe","label":"Severe"}]'::jsonb, FALSE, 1),
@@ -56,9 +56,9 @@ CROSS JOIN (VALUES
 WHERE t.code = 'behavior';
 
 -- diet fields
-INSERT INTO public.tracker_fields (tracker_id, code, name, field_type, options, is_required, position)
+INSERT INTO public.metric_fields (metric_id, code, name, field_type, options, is_required, position)
 SELECT t.id, f.code, f.name, f.field_type, f.options, f.is_required, f.position
-FROM public.trackers t
+FROM public.metrics t
 CROSS JOIN (VALUES
   ('meal_type', 'Meal Type', 'single_select', '[{"value":"breakfast","label":"Breakfast"},{"value":"lunch","label":"Lunch"},{"value":"dinner","label":"Dinner"},{"value":"snack","label":"Snack"}]'::jsonb, FALSE, 0),
   ('foods', 'Foods', 'textarea', NULL::jsonb, FALSE, 1),
@@ -69,9 +69,9 @@ CROSS JOIN (VALUES
 WHERE t.code = 'diet';
 
 -- sleep fields
-INSERT INTO public.tracker_fields (tracker_id, code, name, field_type, options, is_required, position)
+INSERT INTO public.metric_fields (metric_id, code, name, field_type, options, is_required, position)
 SELECT t.id, f.code, f.name, f.field_type, f.options, f.is_required, f.position
-FROM public.trackers t
+FROM public.metrics t
 CROSS JOIN (VALUES
   ('bedtime', 'Bedtime', 'datetime', NULL::jsonb, FALSE, 0),
   ('wake_time', 'Wake Time', 'datetime', NULL::jsonb, FALSE, 1),
@@ -82,9 +82,9 @@ CROSS JOIN (VALUES
 WHERE t.code = 'sleep';
 
 -- health fields
-INSERT INTO public.tracker_fields (tracker_id, code, name, field_type, options, is_required, position)
+INSERT INTO public.metric_fields (metric_id, code, name, field_type, options, is_required, position)
 SELECT t.id, f.code, f.name, f.field_type, f.options, f.is_required, f.position
-FROM public.trackers t
+FROM public.metrics t
 CROSS JOIN (VALUES
   ('status', 'Status', 'single_select', '[{"value":"excellent","label":"Excellent"},{"value":"good","label":"Good"},{"value":"fair","label":"Fair"},{"value":"poor","label":"Poor"},{"value":"critical","label":"Critical"}]'::jsonb, FALSE, 0),
   ('symptoms', 'Symptoms', 'multi_select', '[{"value":"fever","label":"Fever"},{"value":"cough","label":"Cough"},{"value":"fatigue","label":"Fatigue"},{"value":"pain","label":"Pain"},{"value":"nausea","label":"Nausea"},{"value":"headache","label":"Headache"},{"value":"other","label":"Other"}]'::jsonb, FALSE, 1),
@@ -95,9 +95,9 @@ CROSS JOIN (VALUES
 WHERE t.code = 'health';
 
 -- mood fields
-INSERT INTO public.tracker_fields (tracker_id, code, name, field_type, options, is_required, position)
+INSERT INTO public.metric_fields (metric_id, code, name, field_type, options, is_required, position)
 SELECT t.id, f.code, f.name, f.field_type, f.options, f.is_required, f.position
-FROM public.trackers t
+FROM public.metrics t
 CROSS JOIN (VALUES
   ('mood', 'Mood', 'single_select', '[{"value":"very_low","label":"Very Low"},{"value":"low","label":"Low"},{"value":"neutral","label":"Neutral"},{"value":"good","label":"Good"},{"value":"very_good","label":"Very Good"}]'::jsonb, FALSE, 0),
   ('energy', 'Energy', 'single_select', '[{"value":"very_low","label":"Very Low"},{"value":"low","label":"Low"},{"value":"moderate","label":"Moderate"},{"value":"high","label":"High"},{"value":"very_high","label":"Very High"}]'::jsonb, FALSE, 1),
@@ -107,9 +107,9 @@ CROSS JOIN (VALUES
 WHERE t.code = 'mood';
 
 -- soil fields
-INSERT INTO public.tracker_fields (tracker_id, code, name, field_type, options, is_required, position)
+INSERT INTO public.metric_fields (metric_id, code, name, field_type, options, is_required, position)
 SELECT t.id, f.code, f.name, f.field_type, f.options, f.is_required, f.position
-FROM public.trackers t
+FROM public.metrics t
 CROSS JOIN (VALUES
   ('ph', 'pH', 'number', NULL::jsonb, FALSE, 0),
   ('moisture_percent', 'Moisture (%)', 'number', NULL::jsonb, FALSE, 1),
@@ -121,9 +121,9 @@ CROSS JOIN (VALUES
 WHERE t.code = 'soil';
 
 -- growth fields
-INSERT INTO public.tracker_fields (tracker_id, code, name, field_type, options, is_required, position)
+INSERT INTO public.metric_fields (metric_id, code, name, field_type, options, is_required, position)
 SELECT t.id, f.code, f.name, f.field_type, f.options, f.is_required, f.position
-FROM public.trackers t
+FROM public.metrics t
 CROSS JOIN (VALUES
   ('height_cm', 'Height (cm)', 'number', NULL::jsonb, FALSE, 0),
   ('width_cm', 'Width (cm)', 'number', NULL::jsonb, FALSE, 1),
@@ -134,9 +134,9 @@ CROSS JOIN (VALUES
 WHERE t.code = 'growth';
 
 -- harvest fields
-INSERT INTO public.tracker_fields (tracker_id, code, name, field_type, options, is_required, position)
+INSERT INTO public.metric_fields (metric_id, code, name, field_type, options, is_required, position)
 SELECT t.id, f.code, f.name, f.field_type, f.options, f.is_required, f.position
-FROM public.trackers t
+FROM public.metrics t
 CROSS JOIN (VALUES
   ('quantity', 'Quantity', 'number', NULL::jsonb, FALSE, 0),
   ('unit', 'Unit', 'single_select', '[{"value":"kg","label":"kg"},{"value":"lb","label":"lb"},{"value":"count","label":"Count"},{"value":"liters","label":"Liters"},{"value":"bushels","label":"Bushels"}]'::jsonb, FALSE, 1),
@@ -146,9 +146,9 @@ CROSS JOIN (VALUES
 WHERE t.code = 'harvest';
 
 -- weather fields
-INSERT INTO public.tracker_fields (tracker_id, code, name, field_type, options, is_required, position)
+INSERT INTO public.metric_fields (metric_id, code, name, field_type, options, is_required, position)
 SELECT t.id, f.code, f.name, f.field_type, f.options, f.is_required, f.position
-FROM public.trackers t
+FROM public.metrics t
 CROSS JOIN (VALUES
   ('temperature_c', 'Temperature (°C)', 'number', NULL::jsonb, FALSE, 0),
   ('humidity_percent', 'Humidity (%)', 'number', NULL::jsonb, FALSE, 1),
@@ -160,9 +160,9 @@ CROSS JOIN (VALUES
 WHERE t.code = 'weather';
 
 -- conditions fields
-INSERT INTO public.tracker_fields (tracker_id, code, name, field_type, options, is_required, position)
+INSERT INTO public.metric_fields (metric_id, code, name, field_type, options, is_required, position)
 SELECT t.id, f.code, f.name, f.field_type, f.options, f.is_required, f.position
-FROM public.trackers t
+FROM public.metrics t
 CROSS JOIN (VALUES
   ('temperature_c', 'Temperature (°C)', 'number', NULL::jsonb, FALSE, 0),
   ('humidity_percent', 'Humidity (%)', 'number', NULL::jsonb, FALSE, 1),
@@ -173,9 +173,9 @@ CROSS JOIN (VALUES
 WHERE t.code = 'conditions';
 
 -- status fields
-INSERT INTO public.tracker_fields (tracker_id, code, name, field_type, options, is_required, position)
+INSERT INTO public.metric_fields (metric_id, code, name, field_type, options, is_required, position)
 SELECT t.id, f.code, f.name, f.field_type, f.options, f.is_required, f.position
-FROM public.trackers t
+FROM public.metrics t
 CROSS JOIN (VALUES
   ('status', 'Status', 'single_select', '[{"value":"not_started","label":"Not Started"},{"value":"in_progress","label":"In Progress"},{"value":"on_hold","label":"On Hold"},{"value":"completed","label":"Completed"},{"value":"cancelled","label":"Cancelled"}]'::jsonb, FALSE, 0),
   ('progress_percent', 'Progress (%)', 'number', NULL::jsonb, FALSE, 1),
@@ -185,9 +185,9 @@ CROSS JOIN (VALUES
 WHERE t.code = 'status';
 
 -- milestones fields
-INSERT INTO public.tracker_fields (tracker_id, code, name, field_type, options, is_required, position)
+INSERT INTO public.metric_fields (metric_id, code, name, field_type, options, is_required, position)
 SELECT t.id, f.code, f.name, f.field_type, f.options, f.is_required, f.position
-FROM public.trackers t
+FROM public.metrics t
 CROSS JOIN (VALUES
   ('name', 'Name', 'text', NULL::jsonb, TRUE, 0),
   ('target_date', 'Target Date', 'datetime', NULL::jsonb, FALSE, 1),
@@ -197,9 +197,9 @@ CROSS JOIN (VALUES
 WHERE t.code = 'milestones';
 
 -- maintenance fields
-INSERT INTO public.tracker_fields (tracker_id, code, name, field_type, options, is_required, position)
+INSERT INTO public.metric_fields (metric_id, code, name, field_type, options, is_required, position)
 SELECT t.id, f.code, f.name, f.field_type, f.options, f.is_required, f.position
-FROM public.trackers t
+FROM public.metrics t
 CROSS JOIN (VALUES
   ('maintenance_type', 'Maintenance Type', 'single_select', '[{"value":"preventive","label":"Preventive"},{"value":"corrective","label":"Corrective"},{"value":"inspection","label":"Inspection"},{"value":"calibration","label":"Calibration"}]'::jsonb, FALSE, 0),
   ('description', 'Description', 'textarea', NULL::jsonb, TRUE, 1),
@@ -211,9 +211,9 @@ CROSS JOIN (VALUES
 WHERE t.code = 'maintenance';
 
 -- condition fields
-INSERT INTO public.tracker_fields (tracker_id, code, name, field_type, options, is_required, position)
+INSERT INTO public.metric_fields (metric_id, code, name, field_type, options, is_required, position)
 SELECT t.id, f.code, f.name, f.field_type, f.options, f.is_required, f.position
-FROM public.trackers t
+FROM public.metrics t
 CROSS JOIN (VALUES
   ('condition', 'Condition', 'single_select', '[{"value":"new","label":"New"},{"value":"good","label":"Good"},{"value":"fair","label":"Fair"},{"value":"worn","label":"Worn"},{"value":"damaged","label":"Damaged"},{"value":"broken","label":"Broken"}]'::jsonb, FALSE, 0),
   ('operational', 'Operational', 'boolean', NULL::jsonb, FALSE, 1),
@@ -222,9 +222,9 @@ CROSS JOIN (VALUES
 WHERE t.code = 'condition';
 
 -- inventory fields
-INSERT INTO public.tracker_fields (tracker_id, code, name, field_type, options, is_required, position)
+INSERT INTO public.metric_fields (metric_id, code, name, field_type, options, is_required, position)
 SELECT t.id, f.code, f.name, f.field_type, f.options, f.is_required, f.position
-FROM public.trackers t
+FROM public.metrics t
 CROSS JOIN (VALUES
   ('quantity', 'Quantity', 'number', NULL::jsonb, TRUE, 0),
   ('unit', 'Unit', 'text', NULL::jsonb, FALSE, 1),
@@ -235,9 +235,9 @@ CROSS JOIN (VALUES
 WHERE t.code = 'inventory';
 
 -- usage fields
-INSERT INTO public.tracker_fields (tracker_id, code, name, field_type, options, is_required, position)
+INSERT INTO public.metric_fields (metric_id, code, name, field_type, options, is_required, position)
 SELECT t.id, f.code, f.name, f.field_type, f.options, f.is_required, f.position
-FROM public.trackers t
+FROM public.metrics t
 CROSS JOIN (VALUES
   ('quantity_used', 'Quantity Used', 'number', NULL::jsonb, TRUE, 0),
   ('unit', 'Unit', 'text', NULL::jsonb, FALSE, 1),
@@ -247,9 +247,9 @@ CROSS JOIN (VALUES
 WHERE t.code = 'usage';
 
 -- execution fields
-INSERT INTO public.tracker_fields (tracker_id, code, name, field_type, options, is_required, position)
+INSERT INTO public.metric_fields (metric_id, code, name, field_type, options, is_required, position)
 SELECT t.id, f.code, f.name, f.field_type, f.options, f.is_required, f.position
-FROM public.trackers t
+FROM public.metrics t
 CROSS JOIN (VALUES
   ('status', 'Status', 'single_select', '[{"value":"started","label":"Started"},{"value":"running","label":"Running"},{"value":"paused","label":"Paused"},{"value":"completed","label":"Completed"},{"value":"failed","label":"Failed"}]'::jsonb, FALSE, 0),
   ('duration_minutes', 'Duration (minutes)', 'number', NULL::jsonb, FALSE, 1),
@@ -260,9 +260,9 @@ CROSS JOIN (VALUES
 WHERE t.code = 'execution';
 
 -- quality fields
-INSERT INTO public.tracker_fields (tracker_id, code, name, field_type, options, is_required, position)
+INSERT INTO public.metric_fields (metric_id, code, name, field_type, options, is_required, position)
 SELECT t.id, f.code, f.name, f.field_type, f.options, f.is_required, f.position
-FROM public.trackers t
+FROM public.metrics t
 CROSS JOIN (VALUES
   ('rating', 'Rating', 'single_select', '[{"value":"reject","label":"Reject"},{"value":"below_standard","label":"Below Standard"},{"value":"acceptable","label":"Acceptable"},{"value":"good","label":"Good"},{"value":"excellent","label":"Excellent"}]'::jsonb, FALSE, 0),
   ('defects_found', 'Defects Found', 'number', NULL::jsonb, FALSE, 1),
@@ -273,11 +273,11 @@ CROSS JOIN (VALUES
 WHERE t.code = 'quality';
 
 -- --------------------------------------------------------------------------
--- Entity Type -> Tracker Mappings
+-- Entity Type -> Metric Mappings
 -- --------------------------------------------------------------------------
 
 -- person -> behavior, diet, sleep, health, mood
-INSERT INTO public.entity_type_trackers (entity_type_id, tracker_id, position)
+INSERT INTO public.entity_type_metrics (entity_type_id, metric_id, position)
 SELECT et.id, t.id, m.position
 FROM (VALUES
   ('person', 'behavior', 0),
@@ -285,80 +285,80 @@ FROM (VALUES
   ('person', 'sleep', 2),
   ('person', 'health', 3),
   ('person', 'mood', 4)
-) AS m(entity_type_code, tracker_code, position)
+) AS m(entity_type_code, metric_code, position)
 JOIN public.entity_types et ON et.code = m.entity_type_code
-JOIN public.trackers t ON t.code = m.tracker_code;
+JOIN public.metrics t ON t.code = m.metric_code;
 
 -- plant -> soil, health, growth, harvest
-INSERT INTO public.entity_type_trackers (entity_type_id, tracker_id, position)
+INSERT INTO public.entity_type_metrics (entity_type_id, metric_id, position)
 SELECT et.id, t.id, m.position
 FROM (VALUES
   ('plant', 'soil', 0),
   ('plant', 'health', 1),
   ('plant', 'growth', 2),
   ('plant', 'harvest', 3)
-) AS m(entity_type_code, tracker_code, position)
+) AS m(entity_type_code, metric_code, position)
 JOIN public.entity_types et ON et.code = m.entity_type_code
-JOIN public.trackers t ON t.code = m.tracker_code;
+JOIN public.metrics t ON t.code = m.metric_code;
 
 -- animal -> health, diet, behavior, growth
-INSERT INTO public.entity_type_trackers (entity_type_id, tracker_id, position)
+INSERT INTO public.entity_type_metrics (entity_type_id, metric_id, position)
 SELECT et.id, t.id, m.position
 FROM (VALUES
   ('animal', 'health', 0),
   ('animal', 'diet', 1),
   ('animal', 'behavior', 2),
   ('animal', 'growth', 3)
-) AS m(entity_type_code, tracker_code, position)
+) AS m(entity_type_code, metric_code, position)
 JOIN public.entity_types et ON et.code = m.entity_type_code
-JOIN public.trackers t ON t.code = m.tracker_code;
+JOIN public.metrics t ON t.code = m.metric_code;
 
 -- location -> weather, conditions
-INSERT INTO public.entity_type_trackers (entity_type_id, tracker_id, position)
+INSERT INTO public.entity_type_metrics (entity_type_id, metric_id, position)
 SELECT et.id, t.id, m.position
 FROM (VALUES
   ('location', 'weather', 0),
   ('location', 'conditions', 1)
-) AS m(entity_type_code, tracker_code, position)
+) AS m(entity_type_code, metric_code, position)
 JOIN public.entity_types et ON et.code = m.entity_type_code
-JOIN public.trackers t ON t.code = m.tracker_code;
+JOIN public.metrics t ON t.code = m.metric_code;
 
 -- project -> status, milestones
-INSERT INTO public.entity_type_trackers (entity_type_id, tracker_id, position)
+INSERT INTO public.entity_type_metrics (entity_type_id, metric_id, position)
 SELECT et.id, t.id, m.position
 FROM (VALUES
   ('project', 'status', 0),
   ('project', 'milestones', 1)
-) AS m(entity_type_code, tracker_code, position)
+) AS m(entity_type_code, metric_code, position)
 JOIN public.entity_types et ON et.code = m.entity_type_code
-JOIN public.trackers t ON t.code = m.tracker_code;
+JOIN public.metrics t ON t.code = m.metric_code;
 
 -- equipment -> maintenance, condition
-INSERT INTO public.entity_type_trackers (entity_type_id, tracker_id, position)
+INSERT INTO public.entity_type_metrics (entity_type_id, metric_id, position)
 SELECT et.id, t.id, m.position
 FROM (VALUES
   ('equipment', 'maintenance', 0),
   ('equipment', 'condition', 1)
-) AS m(entity_type_code, tracker_code, position)
+) AS m(entity_type_code, metric_code, position)
 JOIN public.entity_types et ON et.code = m.entity_type_code
-JOIN public.trackers t ON t.code = m.tracker_code;
+JOIN public.metrics t ON t.code = m.metric_code;
 
 -- supply -> inventory, usage
-INSERT INTO public.entity_type_trackers (entity_type_id, tracker_id, position)
+INSERT INTO public.entity_type_metrics (entity_type_id, metric_id, position)
 SELECT et.id, t.id, m.position
 FROM (VALUES
   ('supply', 'inventory', 0),
   ('supply', 'usage', 1)
-) AS m(entity_type_code, tracker_code, position)
+) AS m(entity_type_code, metric_code, position)
 JOIN public.entity_types et ON et.code = m.entity_type_code
-JOIN public.trackers t ON t.code = m.tracker_code;
+JOIN public.metrics t ON t.code = m.metric_code;
 
 -- process -> execution, quality
-INSERT INTO public.entity_type_trackers (entity_type_id, tracker_id, position)
+INSERT INTO public.entity_type_metrics (entity_type_id, metric_id, position)
 SELECT et.id, t.id, m.position
 FROM (VALUES
   ('process', 'execution', 0),
   ('process', 'quality', 1)
-) AS m(entity_type_code, tracker_code, position)
+) AS m(entity_type_code, metric_code, position)
 JOIN public.entity_types et ON et.code = m.entity_type_code
-JOIN public.trackers t ON t.code = m.tracker_code;
+JOIN public.metrics t ON t.code = m.metric_code;

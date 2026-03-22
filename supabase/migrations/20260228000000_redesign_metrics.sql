@@ -1,6 +1,6 @@
 -- ============================================================================
--- Migration: Tracker-Based Data Model Redesign
--- Drops old vocabulary-based tables and creates new tracker-based schema
+-- Migration: Metric-Based Data Model Redesign
+-- Drops old vocabulary-based tables and creates new metric-based schema
 -- ============================================================================
 
 -- ============================================================================
@@ -46,9 +46,9 @@ CREATE POLICY "Anyone can view entity types"
   USING (auth.uid() IS NOT NULL);
 
 -- --------------------------------------------------------------------------
--- trackers: Observation templates with typed fields
+-- metrics: Observation templates with typed fields
 -- --------------------------------------------------------------------------
-CREATE TABLE public.trackers (
+CREATE TABLE public.metrics (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   code TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
@@ -59,20 +59,20 @@ CREATE TABLE public.trackers (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_trackers_code ON public.trackers(code);
+CREATE INDEX idx_metrics_code ON public.metrics(code);
 
-ALTER TABLE public.trackers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.metrics ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Anyone can view trackers"
-  ON public.trackers FOR SELECT
+CREATE POLICY "Anyone can view metrics"
+  ON public.metrics FOR SELECT
   USING (auth.uid() IS NOT NULL);
 
 -- --------------------------------------------------------------------------
--- tracker_fields: Field definitions for each tracker
+-- metric_fields: Field definitions for each metric
 -- --------------------------------------------------------------------------
-CREATE TABLE public.tracker_fields (
+CREATE TABLE public.metric_fields (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tracker_id UUID NOT NULL REFERENCES public.trackers(id) ON DELETE CASCADE,
+  metric_id UUID NOT NULL REFERENCES public.metrics(id) ON DELETE CASCADE,
   code TEXT NOT NULL,
   name TEXT NOT NULL,
   field_type TEXT NOT NULL CHECK (field_type IN (
@@ -83,36 +83,36 @@ CREATE TABLE public.tracker_fields (
   position INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE (tracker_id, code)
+  UNIQUE (metric_id, code)
 );
 
-CREATE INDEX idx_tracker_fields_tracker ON public.tracker_fields(tracker_id);
+CREATE INDEX idx_metric_fields_metric ON public.metric_fields(metric_id);
 
-ALTER TABLE public.tracker_fields ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.metric_fields ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Anyone can view tracker fields"
-  ON public.tracker_fields FOR SELECT
+CREATE POLICY "Anyone can view metric fields"
+  ON public.metric_fields FOR SELECT
   USING (auth.uid() IS NOT NULL);
 
 -- --------------------------------------------------------------------------
--- entity_type_trackers: Default tracker assignments per entity type
+-- entity_type_metrics: Default metric assignments per entity type
 -- --------------------------------------------------------------------------
-CREATE TABLE public.entity_type_trackers (
+CREATE TABLE public.entity_type_metrics (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   entity_type_id UUID NOT NULL REFERENCES public.entity_types(id) ON DELETE CASCADE,
-  tracker_id UUID NOT NULL REFERENCES public.trackers(id) ON DELETE CASCADE,
+  metric_id UUID NOT NULL REFERENCES public.metrics(id) ON DELETE CASCADE,
   position INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE (entity_type_id, tracker_id)
+  UNIQUE (entity_type_id, metric_id)
 );
 
-CREATE INDEX idx_ett_entity_type ON public.entity_type_trackers(entity_type_id);
-CREATE INDEX idx_ett_tracker ON public.entity_type_trackers(tracker_id);
+CREATE INDEX idx_etm_entity_type ON public.entity_type_metrics(entity_type_id);
+CREATE INDEX idx_etm_metric ON public.entity_type_metrics(metric_id);
 
-ALTER TABLE public.entity_type_trackers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.entity_type_metrics ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Anyone can view entity type trackers"
-  ON public.entity_type_trackers FOR SELECT
+CREATE POLICY "Anyone can view entity type metrics"
+  ON public.entity_type_metrics FOR SELECT
   USING (auth.uid() IS NOT NULL);
 
 -- --------------------------------------------------------------------------
@@ -156,44 +156,44 @@ CREATE POLICY "Members can update tenant entities"
   ON public.entities FOR UPDATE USING (tenant_id = public.get_my_tenant_id());
 
 -- --------------------------------------------------------------------------
--- entity_trackers: Per-entity tracker overrides
+-- entity_metrics: Per-entity metric overrides
 -- --------------------------------------------------------------------------
-CREATE TABLE public.entity_trackers (
+CREATE TABLE public.entity_metrics (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   entity_id UUID NOT NULL REFERENCES public.entities(id) ON DELETE CASCADE,
-  tracker_id UUID NOT NULL REFERENCES public.trackers(id) ON DELETE CASCADE,
+  metric_id UUID NOT NULL REFERENCES public.metrics(id) ON DELETE CASCADE,
   is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE (entity_id, tracker_id)
+  UNIQUE (entity_id, metric_id)
 );
 
-CREATE INDEX idx_entity_trackers_entity ON public.entity_trackers(entity_id);
+CREATE INDEX idx_entity_metrics_entity ON public.entity_metrics(entity_id);
 
-ALTER TABLE public.entity_trackers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.entity_metrics ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Members can view entity trackers"
-  ON public.entity_trackers FOR SELECT
+CREATE POLICY "Members can view entity metrics"
+  ON public.entity_metrics FOR SELECT
   USING (EXISTS (
     SELECT 1 FROM public.entities e
-    WHERE e.id = entity_trackers.entity_id AND e.tenant_id = public.get_my_tenant_id()
+    WHERE e.id = entity_metrics.entity_id AND e.tenant_id = public.get_my_tenant_id()
   ));
-CREATE POLICY "Members can insert entity trackers"
-  ON public.entity_trackers FOR INSERT
+CREATE POLICY "Members can insert entity metrics"
+  ON public.entity_metrics FOR INSERT
   WITH CHECK (EXISTS (
     SELECT 1 FROM public.entities e
-    WHERE e.id = entity_trackers.entity_id AND e.tenant_id = public.get_my_tenant_id()
+    WHERE e.id = entity_metrics.entity_id AND e.tenant_id = public.get_my_tenant_id()
   ));
-CREATE POLICY "Members can update entity trackers"
-  ON public.entity_trackers FOR UPDATE
+CREATE POLICY "Members can update entity metrics"
+  ON public.entity_metrics FOR UPDATE
   USING (EXISTS (
     SELECT 1 FROM public.entities e
-    WHERE e.id = entity_trackers.entity_id AND e.tenant_id = public.get_my_tenant_id()
+    WHERE e.id = entity_metrics.entity_id AND e.tenant_id = public.get_my_tenant_id()
   ));
-CREATE POLICY "Members can delete entity trackers"
-  ON public.entity_trackers FOR DELETE
+CREATE POLICY "Members can delete entity metrics"
+  ON public.entity_metrics FOR DELETE
   USING (EXISTS (
     SELECT 1 FROM public.entities e
-    WHERE e.id = entity_trackers.entity_id AND e.tenant_id = public.get_my_tenant_id()
+    WHERE e.id = entity_metrics.entity_id AND e.tenant_id = public.get_my_tenant_id()
   ));
 
 -- --------------------------------------------------------------------------
@@ -203,7 +203,7 @@ CREATE TABLE public.observations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   entity_id UUID NOT NULL REFERENCES public.entities(id) ON DELETE CASCADE,
-  tracker_id UUID NOT NULL REFERENCES public.trackers(id),
+  metric_id UUID NOT NULL REFERENCES public.metrics(id),
   observer_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   observed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   field_values JSONB NOT NULL DEFAULT '{}',
@@ -213,10 +213,10 @@ CREATE TABLE public.observations (
 
 CREATE INDEX idx_obs_tenant_id ON public.observations(tenant_id);
 CREATE INDEX idx_obs_entity_id ON public.observations(entity_id);
-CREATE INDEX idx_obs_tracker_id ON public.observations(tracker_id);
+CREATE INDEX idx_obs_metric_id ON public.observations(metric_id);
 CREATE INDEX idx_obs_observer_id ON public.observations(observer_id);
 CREATE INDEX idx_obs_observed_at ON public.observations(tenant_id, observed_at DESC);
-CREATE INDEX idx_obs_entity_tracker ON public.observations(entity_id, tracker_id);
+CREATE INDEX idx_obs_entity_metric ON public.observations(entity_id, metric_id);
 CREATE INDEX idx_obs_field_values ON public.observations USING GIN(field_values);
 
 ALTER TABLE public.observations ENABLE ROW LEVEL SECURITY;

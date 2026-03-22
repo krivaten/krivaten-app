@@ -8,12 +8,12 @@ import { queryKeys } from "@/lib/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 import { useObservations } from "@/hooks/useObservations";
 import { useRelationships } from "@/hooks/useRelationships";
-import { useEntityTrackers } from "@/hooks/useEntityTrackers";
+import { useEntityMetrics } from "@/hooks/useEntityMetrics";
 import { useRelatedEntities } from "@/hooks/useRelatedEntities";
 import { EntityForm } from "@/components/entities/EntityForm";
 import { RelationshipForm } from "@/components/relationships/RelationshipForm";
 import { ObservationForm } from "@/components/observations/ObservationForm";
-import { AddTrackerToEntityDialog } from "@/components/trackers/AddTrackerToEntityDialog";
+import { AddMetricToEntityDialog } from "@/components/metrics/AddMetricToEntityDialog";
 import { Timeline } from "@/components/observations/Timeline";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ export default function EntityDetail() {
   const [editingRelationship, setEditingRelationship] =
     useState<Relationship | null>(null);
   const [page, setPage] = useState(1);
-  const [addTrackerOpen, setAddTrackerOpen] = useState(false);
+  const [addMetricOpen, setAddMetricOpen] = useState(false);
 
   const entityQuery = useQuery({
     queryKey: queryKeys.entities.detail(id!),
@@ -71,7 +71,7 @@ export default function EntityDetail() {
     deleteRelationship,
   } = useRelationships(id);
 
-  const { trackers: entityTrackers, updateTrackers } = useEntityTrackers(
+  const { metrics: entityMetrics, updateMetrics } = useEntityMetrics(
     id ?? "",
   );
 
@@ -111,12 +111,12 @@ export default function EntityDetail() {
     }
   }
 
-  async function handleToggleTracker(trackerId: string, isEnabled: boolean) {
+  async function handleToggleMetric(metricId: string, isEnabled: boolean) {
     try {
-      await updateTrackers([{ tracker_id: trackerId, is_enabled: isEnabled }]);
+      await updateMetrics([{ metric_id: metricId, is_enabled: isEnabled }]);
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to update tracker",
+        err instanceof Error ? err.message : "Failed to update metric",
       );
     }
   }
@@ -174,40 +174,40 @@ export default function EntityDetail() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Trackers</CardTitle>
+            <CardTitle className="text-base">Metrics</CardTitle>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setAddTrackerOpen(true)}
+              onClick={() => setAddMetricOpen(true)}
             >
-              Add Tracker
+              Add Metric
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          {entityTrackers.length === 0 ? (
+          {entityMetrics.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No trackers configured. Click "Add Tracker" to get started.
+              No metrics configured. Click "Add Metric" to get started.
             </p>
           ) : (
             <div className="space-y-3">
-              {entityTrackers.map((et) => (
+              {entityMetrics.map((em) => (
                 <div
-                  key={et.tracker.id}
+                  key={em.metric.id}
                   className="flex items-center justify-between"
                 >
                   <div className="flex items-center gap-2">
-                    <Label className="text-sm">{et.tracker.name}</Label>
-                    {et.is_default && (
+                    <Label className="text-sm">{em.metric.name}</Label>
+                    {em.is_default && (
                       <Badge variant="secondary" className="text-xs">
                         Default
                       </Badge>
                     )}
                   </div>
                   <Switch
-                    checked={et.is_enabled}
+                    checked={em.is_enabled}
                     onCheckedChange={(checked) =>
-                      handleToggleTracker(et.tracker.id, checked)
+                      handleToggleMetric(em.metric.id, checked)
                     }
                   />
                 </div>
@@ -422,17 +422,17 @@ export default function EntityDetail() {
         defaultEntityId={id}
       />
 
-      <AddTrackerToEntityDialog
+      <AddMetricToEntityDialog
         entityId={id!}
-        currentTrackerIds={new Set(entityTrackers.map((et) => et.tracker.id))}
-        open={addTrackerOpen}
-        onOpenChange={setAddTrackerOpen}
-        onAdd={async (trackerIds) => {
-          const overrides = trackerIds.map((tracker_id) => ({
-            tracker_id,
+        currentMetricIds={new Set(entityMetrics.map((em) => em.metric.id))}
+        open={addMetricOpen}
+        onOpenChange={setAddMetricOpen}
+        onAdd={async (metricIds) => {
+          const overrides = metricIds.map((metric_id) => ({
+            metric_id,
             is_enabled: true,
           }));
-          await updateTrackers(overrides);
+          await updateMetrics(overrides);
         }}
       />
     </>

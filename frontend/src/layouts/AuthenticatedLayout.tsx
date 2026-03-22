@@ -23,8 +23,8 @@ export function AuthenticatedLayout() {
   const navLinks = [
     { to: "/", label: "Home" },
     { to: "/entities", label: "Entities" },
-    { to: "/trackers", label: "Trackers" },
     { to: "/metrics", label: "Metrics" },
+    { to: "/observations", label: "Observations" },
     { to: "/profile", label: "Profile" },
   ];
 

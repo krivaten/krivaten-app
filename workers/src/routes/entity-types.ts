@@ -29,7 +29,7 @@ entityTypes.get("/api/v1/entity-types", async (c) => {
   return c.json(data);
 });
 
-// GET /api/v1/entity-types/:id — Single entity type with default trackers
+// GET /api/v1/entity-types/:id — Single entity type with default metrics
 entityTypes.get("/api/v1/entity-types/:id", async (c) => {
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
   const id = c.req.param("id");
@@ -37,7 +37,7 @@ entityTypes.get("/api/v1/entity-types/:id", async (c) => {
   const { data, error } = await supabase
     .from("entity_types")
     .select(
-      "*, trackers:entity_type_trackers(position, tracker:trackers(*, fields:tracker_fields(*)))",
+      "*, metrics:entity_type_metrics(position, metric:metrics(*, fields:metric_fields(*)))",
     )
     .eq("id", id)
     .single();

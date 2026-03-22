@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useTrackers, useTracker } from "@/hooks/useTrackers";
+import { useMetrics, useMetric } from "@/hooks/useMetrics";
 import { useEntityTypes } from "@/hooks/useEntityTypes";
 import { State } from "@/lib/state";
 import { Badge } from "@/components/ui/badge";
@@ -12,10 +12,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { TrackerForm } from "@/components/trackers/TrackerForm";
-import { EntityTypeDefaultsDialog } from "@/components/trackers/EntityTypeDefaultsDialog";
+import { MetricForm } from "@/components/metrics/MetricForm";
+import { EntityTypeDefaultsDialog } from "@/components/metrics/EntityTypeDefaultsDialog";
 import { toast } from "sonner";
-import type { Tracker, TrackerCreate } from "@/types/tracker";
+import type { Metric, MetricCreate } from "@/types/metric";
 import { PageTitle } from "@/components/PageTitle";
 
 const FIELD_TYPE_LABELS: Record<string, string> = {
@@ -28,27 +28,27 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   datetime: "Date/Time",
 };
 
-function TrackerDetail({
-  trackerId,
+function MetricDetail({
+  metricId,
   onClose,
 }: {
-  trackerId: string;
+  metricId: string;
   onClose: () => void;
 }) {
-  const { tracker } = useTracker(trackerId);
+  const { metric } = useMetric(metricId);
 
-  if (!tracker) return null;
+  if (!metric) return null;
 
-  const fields = (tracker.fields ?? []).sort((a, b) => a.position - b.position);
+  const fields = (metric.fields ?? []).sort((a, b) => a.position - b.position);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{tracker.name}</DialogTitle>
+          <DialogTitle>{metric.name}</DialogTitle>
         </DialogHeader>
-        {tracker.description && (
-          <p className="text-sm text-muted-foreground">{tracker.description}</p>
+        {metric.description && (
+          <p className="text-sm text-muted-foreground">{metric.description}</p>
         )}
         <div className="space-y-3 mt-2">
           <h3 className="text-sm font-medium">Fields</h3>
@@ -91,23 +91,23 @@ function TrackerDetail({
   );
 }
 
-export default function Trackers() {
+export default function Metrics() {
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>("all");
-  const [selectedTrackerId, setSelectedTrackerId] = useState<string | null>(
+  const [selectedMetricId, setSelectedMetricId] = useState<string | null>(
     null,
   );
   const [formOpen, setFormOpen] = useState(false);
-  const [editingTracker, setEditingTracker] = useState<Tracker | undefined>(
+  const [editingMetric, setEditingMetric] = useState<Metric | undefined>(
     undefined,
   );
-  const [deletingTracker, setDeletingTracker] = useState<Tracker | null>(null);
+  const [deletingMetric, setDeletingMetric] = useState<Metric | null>(null);
   const [defaultsEntityTypeId, setDefaultsEntityTypeId] = useState<
     string | null
   >(null);
 
   const { entityTypes } = useEntityTypes();
-  const { trackers, state, createTracker, updateTracker, deleteTracker } =
-    useTrackers(entityTypeFilter === "all" ? undefined : entityTypeFilter);
+  const { metrics, state, createMetric, updateMetric, deleteMetric } =
+    useMetrics(entityTypeFilter === "all" ? undefined : entityTypeFilter);
 
   const tabs = [
     { value: "all", label: "All" },
@@ -119,37 +119,37 @@ export default function Trackers() {
       ? entityTypes.find((t) => t.code === entityTypeFilter)
       : null;
 
-  function handleCardClick(tracker: Tracker) {
-    if (tracker.is_system) {
-      setSelectedTrackerId(tracker.id);
+  function handleCardClick(metric: Metric) {
+    if (metric.is_system) {
+      setSelectedMetricId(metric.id);
     } else {
-      setEditingTracker(tracker);
+      setEditingMetric(metric);
       setFormOpen(true);
     }
   }
 
   function handleCreate() {
-    setEditingTracker(undefined);
+    setEditingMetric(undefined);
     setFormOpen(true);
   }
 
-  async function handleFormSubmit(data: TrackerCreate) {
-    if (editingTracker) {
-      await updateTracker({ id: editingTracker.id, data });
+  async function handleFormSubmit(data: MetricCreate) {
+    if (editingMetric) {
+      await updateMetric({ id: editingMetric.id, data });
     } else {
-      await createTracker(data);
+      await createMetric(data);
     }
   }
 
   async function handleDelete() {
-    if (!deletingTracker) return;
+    if (!deletingMetric) return;
     try {
-      await deleteTracker(deletingTracker.id);
-      toast.success("Tracker deleted!");
-      setDeletingTracker(null);
+      await deleteMetric(deletingMetric.id);
+      toast.success("Metric deleted!");
+      setDeletingMetric(null);
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to delete tracker",
+        err instanceof Error ? err.message : "Failed to delete metric",
       );
     }
   }
@@ -157,7 +157,7 @@ export default function Trackers() {
   return (
     <>
       <PageTitle
-        title="Trackers"
+        title="Metrics"
         description="Types of observations you can log for your entities."
       >
         <div className="flex gap-2">
@@ -169,7 +169,7 @@ export default function Trackers() {
               Manage Defaults
             </Button>
           )}
-          <Button onClick={handleCreate}>Create Tracker</Button>
+          <Button onClick={handleCreate}>Create Metric</Button>
         </div>
       </PageTitle>
 
@@ -185,28 +185,28 @@ export default function Trackers() {
 
       {(state === State.INITIAL || state === State.PENDING) && (
         <div className="text-muted-foreground py-8 text-center">
-          Loading trackers...
+          Loading metrics...
         </div>
       )}
 
       {state === State.NONE && (
         <div className="text-muted-foreground py-8 text-center">
-          No trackers found for this entity type.
+          No metrics found for this entity type.
         </div>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {trackers.map((tracker) => (
+        {metrics.map((metric) => (
           <Card
-            key={tracker.id}
+            key={metric.id}
             className="cursor-pointer hover:border-foreground/20 transition-colors"
-            onClick={() => handleCardClick(tracker)}
+            onClick={() => handleCardClick(metric)}
           >
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base">{tracker.name}</CardTitle>
+                <CardTitle className="text-base">{metric.name}</CardTitle>
                 <div className="flex items-center gap-1">
-                  {tracker.is_system ? (
+                  {metric.is_system ? (
                     <Badge variant="secondary" className="text-xs">
                       System
                     </Badge>
@@ -219,14 +219,14 @@ export default function Trackers() {
               </div>
             </CardHeader>
             <CardContent>
-              {tracker.description && (
+              {metric.description && (
                 <p className="text-sm text-muted-foreground mb-2">
-                  {tracker.description}
+                  {metric.description}
                 </p>
               )}
               <div className="flex items-center justify-between">
                 <div className="flex flex-wrap gap-1">
-                  {(tracker.fields ?? [])
+                  {(metric.fields ?? [])
                     .sort((a, b) => a.position - b.position)
                     .slice(0, 4)
                     .map((f) => (
@@ -234,20 +234,20 @@ export default function Trackers() {
                         {f.name}
                       </Badge>
                     ))}
-                  {(tracker.fields ?? []).length > 4 && (
+                  {(metric.fields ?? []).length > 4 && (
                     <Badge variant="outline" className="text-xs">
-                      +{(tracker.fields ?? []).length - 4} more
+                      +{(metric.fields ?? []).length - 4} more
                     </Badge>
                   )}
                 </div>
-                {!tracker.is_system && (
+                {!metric.is_system && (
                   <Button
                     variant="ghost"
                     size="sm"
                     className="text-destructive hover:text-destructive"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setDeletingTracker(tracker);
+                      setDeletingMetric(metric);
                     }}
                   >
                     Delete
@@ -259,36 +259,36 @@ export default function Trackers() {
         ))}
       </div>
 
-      {selectedTrackerId && (
-        <TrackerDetail
-          trackerId={selectedTrackerId}
-          onClose={() => setSelectedTrackerId(null)}
+      {selectedMetricId && (
+        <MetricDetail
+          metricId={selectedMetricId}
+          onClose={() => setSelectedMetricId(null)}
         />
       )}
 
-      <TrackerForm
+      <MetricForm
         open={formOpen}
         onOpenChange={setFormOpen}
         onSubmit={handleFormSubmit}
-        tracker={editingTracker}
+        metric={editingMetric}
       />
 
       {/* Delete confirmation */}
-      {deletingTracker && (
-        <Dialog open onOpenChange={(open) => !open && setDeletingTracker(null)}>
+      {deletingMetric && (
+        <Dialog open onOpenChange={(open) => !open && setDeletingMetric(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Delete Tracker</DialogTitle>
+              <DialogTitle>Delete Metric</DialogTitle>
             </DialogHeader>
             <p className="text-sm text-muted-foreground">
               Are you sure you want to delete{" "}
-              <strong>{deletingTracker.name}</strong>? This cannot be undone.
-              Trackers with existing observations cannot be deleted.
+              <strong>{deletingMetric.name}</strong>? This cannot be undone.
+              Metrics with existing observations cannot be deleted.
             </p>
             <div className="flex justify-end gap-2 mt-4">
               <Button
                 variant="outline"
-                onClick={() => setDeletingTracker(null)}
+                onClick={() => setDeletingMetric(null)}
               >
                 Cancel
               </Button>

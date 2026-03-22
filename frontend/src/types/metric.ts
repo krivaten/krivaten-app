@@ -7,9 +7,9 @@ export type FieldType =
   | "textarea"
   | "datetime";
 
-export interface TrackerField {
+export interface MetricField {
   id: string;
-  tracker_id: string;
+  metric_id: string;
   code: string;
   name: string;
   field_type: FieldType;
@@ -20,7 +20,7 @@ export interface TrackerField {
   updated_at: string;
 }
 
-export interface Tracker {
+export interface Metric {
   id: string;
   code: string;
   name: string;
@@ -30,18 +30,18 @@ export interface Tracker {
   tenant_id: string | null;
   created_at: string;
   updated_at: string;
-  fields?: TrackerField[];
+  fields?: MetricField[];
 }
 
-export interface TrackerCreate {
+export interface MetricCreate {
   code?: string;
   name: string;
   description?: string;
   icon?: string;
-  fields: TrackerFieldCreate[];
+  fields: MetricFieldCreate[];
 }
 
-export interface TrackerFieldCreate {
+export interface MetricFieldCreate {
   id?: string;
   code: string;
   name: string;
@@ -51,8 +51,8 @@ export interface TrackerFieldCreate {
   position: number;
 }
 
-export interface EntityTypeTrackerAssociation {
-  tracker: Tracker;
+export interface EntityTypeMetricAssociation {
+  metric: Metric;
   position: number;
   is_system_default: boolean;
 }

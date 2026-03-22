@@ -19,9 +19,9 @@ import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/ui/combobox";
 import { toast } from "sonner";
 import { useEntities } from "@/hooks/useEntities";
-import { useEntityTrackers } from "@/hooks/useEntityTrackers";
-import { useTracker } from "@/hooks/useTrackers";
-import { TrackerFieldInput } from "./TrackerFieldInput";
+import { useEntityMetrics } from "@/hooks/useEntityMetrics";
+import { useMetric } from "@/hooks/useMetrics";
+import { MetricFieldInput } from "./MetricFieldInput";
 import type { Observation, ObservationCreate } from "@/types/observation";
 
 interface Props {
@@ -34,25 +34,25 @@ interface Props {
 export function ObservationForm({ open, onOpenChange, onSubmit, defaultEntityId }: Props) {
   const { entities } = useEntities();
   const [entityId, setEntityId] = useState(defaultEntityId ?? "");
-  const [trackerId, setTrackerId] = useState("");
+  const [metricId, setMetricId] = useState("");
   const [fieldValues, setFieldValues] = useState<Record<string, unknown>>({});
   const [notes, setNotes] = useState("");
   const [observedAt, setObservedAt] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { enabledTrackers } = useEntityTrackers(entityId);
-  const { tracker: selectedTracker } = useTracker(trackerId);
+  const { enabledMetrics } = useEntityMetrics(entityId);
+  const { metric: selectedMetric } = useMetric(metricId);
 
-  // Reset tracker when entity changes
+  // Reset metric when entity changes
   useEffect(() => {
-    setTrackerId("");
+    setMetricId("");
     setFieldValues({});
   }, [entityId]);
 
-  // Reset field values when tracker changes
+  // Reset field values when metric changes
   useEffect(() => {
     setFieldValues({});
-  }, [trackerId]);
+  }, [metricId]);
 
   const entityOptions = entities.map((e) => ({
     value: e.id,
@@ -60,13 +60,13 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultEntityId 
     description: e.entity_type?.name,
   }));
 
-  const sortedFields = (selectedTracker?.fields ?? []).sort(
+  const sortedFields = (selectedMetric?.fields ?? []).sort(
     (a, b) => a.position - b.position,
   );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!entityId || !trackerId) return;
+    if (!entityId || !metricId) return;
 
     // Validate required fields
     const missingRequired = sortedFields
@@ -93,7 +93,7 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultEntityId 
 
       await onSubmit({
         entity_id: entityId,
-        tracker_id: trackerId,
+        metric_id: metricId,
         field_values: cleanValues,
         notes: notes.trim() || undefined,
         observed_at: observedAt || undefined,
@@ -102,7 +102,7 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultEntityId 
       setFieldValues({});
       setNotes("");
       setObservedAt("");
-      setTrackerId("");
+      setMetricId("");
       if (!defaultEntityId) setEntityId("");
       onOpenChange(false);
     } catch (err) {
@@ -134,15 +134,15 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultEntityId 
 
           {entityId && (
             <div className="space-y-2">
-              <Label>Tracker</Label>
-              <Select value={trackerId} onValueChange={setTrackerId}>
+              <Label>Metric</Label>
+              <Select value={metricId} onValueChange={setMetricId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select tracker..." />
+                  <SelectValue placeholder="Select metric..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {enabledTrackers.map((et) => (
-                    <SelectItem key={et.tracker.id} value={et.tracker.id}>
-                      {et.tracker.name}
+                  {enabledMetrics.map((em) => (
+                    <SelectItem key={em.metric.id} value={em.metric.id}>
+                      {em.metric.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -150,10 +150,10 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultEntityId 
             </div>
           )}
 
-          {selectedTracker && sortedFields.length > 0 && (
+          {selectedMetric && sortedFields.length > 0 && (
             <div className="space-y-3 rounded-lg border p-3">
               {sortedFields.map((field) => (
-                <TrackerFieldInput
+                <MetricFieldInput
                   key={field.id}
                   field={field}
                   value={fieldValues[field.code]}
@@ -190,7 +190,7 @@ export function ObservationForm({ open, onOpenChange, onSubmit, defaultEntityId 
 
           <Button
             type="submit"
-            disabled={loading || !entityId || !trackerId}
+            disabled={loading || !entityId || !metricId}
             className="w-full"
           >
             {loading ? "Logging..." : "Log Observation"}

@@ -11,9 +11,9 @@ import {
 import { Combobox } from "@/components/ui/combobox";
 import { toast } from "sonner";
 import { useEntities } from "@/hooks/useEntities";
-import { useEntityTrackers } from "@/hooks/useEntityTrackers";
-import { useTracker } from "@/hooks/useTrackers";
-import { TrackerFieldInput } from "./TrackerFieldInput";
+import { useEntityMetrics } from "@/hooks/useEntityMetrics";
+import { useMetric } from "@/hooks/useMetrics";
+import { MetricFieldInput } from "./MetricFieldInput";
 import type { Observation, ObservationCreate } from "@/types/observation";
 
 interface Props {
@@ -23,21 +23,21 @@ interface Props {
 export function QuickLog({ onSubmit }: Props) {
   const { entities } = useEntities();
   const [entityId, setEntityId] = useState("");
-  const [trackerId, setTrackerId] = useState("");
+  const [metricId, setMetricId] = useState("");
   const [fieldValues, setFieldValues] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(false);
 
-  const { enabledTrackers } = useEntityTrackers(entityId);
-  const { tracker: selectedTracker } = useTracker(trackerId);
+  const { enabledMetrics } = useEntityMetrics(entityId);
+  const { metric: selectedMetric } = useMetric(metricId);
 
   useEffect(() => {
-    setTrackerId("");
+    setMetricId("");
     setFieldValues({});
   }, [entityId]);
 
   useEffect(() => {
     setFieldValues({});
-  }, [trackerId]);
+  }, [metricId]);
 
   const entityOptions = entities.map((e) => ({
     value: e.id,
@@ -46,13 +46,13 @@ export function QuickLog({ onSubmit }: Props) {
   }));
 
   // Show only required fields for quick log
-  const requiredFields = (selectedTracker?.fields ?? [])
+  const requiredFields = (selectedMetric?.fields ?? [])
     .filter((f) => f.is_required)
     .sort((a, b) => a.position - b.position);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!entityId || !trackerId) return;
+    if (!entityId || !metricId) return;
 
     setLoading(true);
     try {
@@ -65,7 +65,7 @@ export function QuickLog({ onSubmit }: Props) {
 
       await onSubmit({
         entity_id: entityId,
-        tracker_id: trackerId,
+        metric_id: metricId,
         field_values: cleanValues,
       });
       toast.success("Observation logged!");
@@ -93,14 +93,14 @@ export function QuickLog({ onSubmit }: Props) {
               searchPlaceholder="Search entities..."
               emptyMessage="No entities found."
             />
-            <Select value={trackerId} onValueChange={setTrackerId}>
+            <Select value={metricId} onValueChange={setMetricId}>
               <SelectTrigger>
-                <SelectValue placeholder="Tracker..." />
+                <SelectValue placeholder="Metric..." />
               </SelectTrigger>
               <SelectContent>
-                {enabledTrackers.map((et) => (
-                  <SelectItem key={et.tracker.id} value={et.tracker.id}>
-                    {et.tracker.name}
+                {enabledMetrics.map((em) => (
+                  <SelectItem key={em.metric.id} value={em.metric.id}>
+                    {em.metric.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -110,7 +110,7 @@ export function QuickLog({ onSubmit }: Props) {
           {requiredFields.length > 0 && (
             <div className="space-y-2">
               {requiredFields.map((field) => (
-                <TrackerFieldInput
+                <MetricFieldInput
                   key={field.id}
                   field={field}
                   value={fieldValues[field.code]}
@@ -125,7 +125,7 @@ export function QuickLog({ onSubmit }: Props) {
           <Button
             type="submit"
             size="sm"
-            disabled={loading || !entityId || !trackerId}
+            disabled={loading || !entityId || !metricId}
             className="w-full"
           >
             {loading ? "Logging..." : "Log"}

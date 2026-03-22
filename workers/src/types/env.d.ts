@@ -38,7 +38,7 @@ declare namespace Global {
     updated_at: string;
   }
 
-  interface Tracker {
+  interface Metric {
     id: string;
     code: string;
     name: string;
@@ -47,12 +47,12 @@ declare namespace Global {
     is_system: boolean;
     created_at: string;
     updated_at: string;
-    fields?: TrackerField[];
+    fields?: MetricField[];
   }
 
-  interface TrackerField {
+  interface MetricField {
     id: string;
-    tracker_id: string;
+    metric_id: string;
     code: string;
     name: string;
     field_type:
@@ -91,14 +91,14 @@ declare namespace Global {
     id: string;
     tenant_id: string;
     entity_id: string;
-    tracker_id: string;
+    metric_id: string;
     observer_id: string | null;
     observed_at: string;
     field_values: Record<string, unknown>;
     notes: string | null;
     created_at: string;
     entity?: Pick<Entity, "id" | "name">;
-    tracker?: Pick<Tracker, "id" | "code" | "name">;
+    metric?: Pick<Metric, "id" | "code" | "name">;
   }
 
   interface Relationship {

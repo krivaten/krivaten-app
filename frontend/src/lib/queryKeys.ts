@@ -7,7 +7,7 @@ interface EntityFilters {
 
 interface ObservationFilters {
   entity_id?: string;
-  tracker?: string;
+  metric?: string;
   from?: string;
   to?: string;
   page?: number;
@@ -25,18 +25,18 @@ export const queryKeys = {
     all: () => ["entityTypes"] as const,
     list: () => ["entityTypes", "list"] as const,
   },
-  trackers: {
-    all: () => ["trackers"] as const,
+  metrics: {
+    all: () => ["metrics"] as const,
     list: (entityType?: string) =>
-      ["trackers", "list", entityType ?? "all"] as const,
-    detail: (id: string) => ["trackers", "detail", id] as const,
+      ["metrics", "list", entityType ?? "all"] as const,
+    detail: (id: string) => ["metrics", "detail", id] as const,
   },
   entities: {
     all: () => ["entities"] as const,
     list: (filters?: EntityFilters) =>
       ["entities", "list", filters ?? {}] as const,
     detail: (id: string) => ["entities", "detail", id] as const,
-    trackers: (id: string) => ["entities", "trackers", id] as const,
+    metrics: (id: string) => ["entities", "metrics", id] as const,
     related: (id: string) => ["entities", "related", id] as const,
   },
   observations: {
@@ -50,9 +50,9 @@ export const queryKeys = {
     list: (entityId?: string) =>
       ["relationships", "list", entityId ?? "all"] as const,
   },
-  entityTypeTrackers: {
-    all: () => ["entityTypeTrackers"] as const,
+  entityTypeMetrics: {
+    all: () => ["entityTypeMetrics"] as const,
     list: (entityTypeId: string) =>
-      ["entityTypeTrackers", "list", entityTypeId] as const,
+      ["entityTypeMetrics", "list", entityTypeId] as const,
   },
 };

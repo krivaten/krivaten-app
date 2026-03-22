@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import type { Tracker, TrackerCreate, TrackerFieldCreate, FieldType } from "@/types/tracker";
+import type { Metric, MetricCreate, MetricFieldCreate, FieldType } from "@/types/metric";
 
 const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: "text", label: "Text" },
@@ -37,30 +37,30 @@ function slugify(name: string): string {
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: TrackerCreate) => Promise<unknown>;
-  tracker?: Tracker;
+  onSubmit: (data: MetricCreate) => Promise<unknown>;
+  metric?: Metric;
 }
 
-function emptyField(position: number): TrackerFieldCreate {
+function emptyField(position: number): MetricFieldCreate {
   return { code: "", name: "", field_type: "text", is_required: false, position, options: null };
 }
 
-export function TrackerForm({ open, onOpenChange, onSubmit, tracker }: Props) {
+export function MetricForm({ open, onOpenChange, onSubmit, metric }: Props) {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [description, setDescription] = useState("");
-  const [fields, setFields] = useState<TrackerFieldCreate[]>([]);
+  const [fields, setFields] = useState<MetricFieldCreate[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const isEdit = !!tracker;
+  const isEdit = !!metric;
 
   useEffect(() => {
-    if (open && tracker) {
-      setName(tracker.name);
-      setCode(tracker.code);
-      setDescription(tracker.description || "");
+    if (open && metric) {
+      setName(metric.name);
+      setCode(metric.code);
+      setDescription(metric.description || "");
       setFields(
-        (tracker.fields || []).map((f) => ({
+        (metric.fields || []).map((f) => ({
           id: f.id,
           code: f.code,
           name: f.name,
@@ -70,13 +70,13 @@ export function TrackerForm({ open, onOpenChange, onSubmit, tracker }: Props) {
           position: f.position,
         })),
       );
-    } else if (open && !tracker) {
+    } else if (open && !metric) {
       setName("");
       setCode("");
       setDescription("");
       setFields([]);
     }
-  }, [open, tracker]);
+  }, [open, metric]);
 
   function handleNameChange(value: string) {
     setName(value);
@@ -93,7 +93,7 @@ export function TrackerForm({ open, onOpenChange, onSubmit, tracker }: Props) {
     setFields((prev) => prev.filter((_, i) => i !== index).map((f, i) => ({ ...f, position: i })));
   }
 
-  function updateField(index: number, updates: Partial<TrackerFieldCreate>) {
+  function updateField(index: number, updates: Partial<MetricFieldCreate>) {
     setFields((prev) =>
       prev.map((f, i) => (i === index ? { ...f, ...updates } : f)),
     );
@@ -110,7 +110,7 @@ export function TrackerForm({ open, onOpenChange, onSubmit, tracker }: Props) {
   }
 
   function handleFieldNameChange(index: number, value: string) {
-    const updates: Partial<TrackerFieldCreate> = { name: value };
+    const updates: Partial<MetricFieldCreate> = { name: value };
     const field = fields[index];
     if (!field.id) {
       updates.code = slugify(value);
@@ -150,10 +150,10 @@ export function TrackerForm({ open, onOpenChange, onSubmit, tracker }: Props) {
         description: description.trim() || undefined,
         fields,
       });
-      toast.success(isEdit ? "Tracker updated!" : "Tracker created!");
+      toast.success(isEdit ? "Metric updated!" : "Metric created!");
       onOpenChange(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : `Failed to ${isEdit ? "update" : "create"} tracker`);
+      toast.error(err instanceof Error ? err.message : `Failed to ${isEdit ? "update" : "create"} metric`);
     } finally {
       setLoading(false);
     }
@@ -165,14 +165,14 @@ export function TrackerForm({ open, onOpenChange, onSubmit, tracker }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Tracker" : "Create Tracker"}</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit Metric" : "Create Metric"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Metadata */}
           <div className="space-y-2">
-            <Label htmlFor="tracker-name">Name</Label>
+            <Label htmlFor="metric-name">Name</Label>
             <Input
-              id="tracker-name"
+              id="metric-name"
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
               placeholder="e.g. Plant Growth"
@@ -180,9 +180,9 @@ export function TrackerForm({ open, onOpenChange, onSubmit, tracker }: Props) {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="tracker-code">Code</Label>
+            <Label htmlFor="metric-code">Code</Label>
             <Input
-              id="tracker-code"
+              id="metric-code"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="auto-generated from name"
@@ -191,12 +191,12 @@ export function TrackerForm({ open, onOpenChange, onSubmit, tracker }: Props) {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="tracker-desc">Description (optional)</Label>
+            <Label htmlFor="metric-desc">Description (optional)</Label>
             <Textarea
-              id="tracker-desc"
+              id="metric-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="What does this tracker measure?"
+              placeholder="What does this metric measure?"
               rows={2}
             />
           </div>
@@ -211,7 +211,7 @@ export function TrackerForm({ open, onOpenChange, onSubmit, tracker }: Props) {
             </div>
 
             {fields.length === 0 && (
-              <p className="text-sm text-muted-foreground">No fields yet. Add fields to define what this tracker captures.</p>
+              <p className="text-sm text-muted-foreground">No fields yet. Add fields to define what this metric captures.</p>
             )}
 
             {fields.map((field, i) => (
@@ -318,7 +318,7 @@ export function TrackerForm({ open, onOpenChange, onSubmit, tracker }: Props) {
           </div>
 
           <Button type="submit" disabled={loading || !name.trim() || !code.trim()} className="w-full">
-            {loading ? (isEdit ? "Saving..." : "Creating...") : (isEdit ? "Save Changes" : "Create Tracker")}
+            {loading ? (isEdit ? "Saving..." : "Creating...") : (isEdit ? "Save Changes" : "Create Metric")}
           </Button>
         </form>
       </DialogContent>

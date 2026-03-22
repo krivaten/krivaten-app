@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Krivaten is a Universal Observation Database — a tracker-based platform for tracking entities (things), relationships (connections), and observations (structured measurements) across any domain.
+Krivaten is a Universal Observation Database — a metric-based platform for tracking entities (things), relationships (connections), and observations (structured measurements) across any domain.
 
 - **Frontend**: Vite + React + TypeScript + React Router + TanStack Query v5 + Tailwind CSS v4 + shadcn/ui → Cloudflare Pages
 - **Backend**: Hono (TypeScript) on Cloudflare Workers
@@ -10,10 +10,16 @@ Krivaten is a Universal Observation Database — a tracker-based platform for tr
 - **Authentication**: Supabase Auth (Google, GitHub, email/password)
 - **Package Manager**: pnpm (workspace monorepo)
 
+## Agent Guidelines
+
+- **Use the `superpowers:write-plan` Agent Skill for plan writing:** When writing plans, always use the `superpowers:write-plan` skill to ensure clarity and completeness.
+- **Use the `superpowers:execute-plan` Agent Skill for plan execution:** When executing plans, always use the `superpowers:execute-plan` skill to ensure accurate and efficient plan execution.
+- **Use the `superpowers:write-code` Agent Skill for code generation:** When generating code, always use the `superpowers:write-code` skill to ensure the code is well-structured and maintainable.
+
 ## Project Structure
 
 ```
-krivaten/
+app/
 ├── frontend/          # React SPA → Cloudflare Pages (port 5173)
 ├── workers/           # Hono API → Cloudflare Workers (port 8787)
 ├── supabase/          # Database migrations + seed.sql
@@ -59,29 +65,31 @@ If `db push` fails with "Remote migration versions not found in local", the migr
 - **tenant_members** — Join table linking users to tenants (user_id, tenant_id, role, is_active). Partial unique index enforces one active membership per user. Users can belong to multiple tenants but only one is active at a time
 - **profiles** — User profiles (auto-created on signup via trigger, or lazily via `ensureProfile`). No tenant_id — tenant association lives in `tenant_members`
 - **entity_types** — System-defined entity categories (person, plant, animal, location, project, equipment, supply, process). Read-only, shared across all tenants
-- **trackers** — Observation templates with structured fields (mood, growth, health, etc.). System-defined, shared across all tenants
-- **tracker_fields** — Field definitions for each tracker (code, name, field_type, options, is_required, position). Field types: text, number, boolean, single_select, multi_select, textarea, datetime
-- **entity_type_trackers** — Default tracker assignments per entity type (e.g. person → mood, health, sleep, diet, behavior)
+- **metrics** — Observation templates with structured fields (mood, growth, health, etc.). System-defined, shared across all tenants
+- **metric_fields** — Field definitions for each metric (code, name, field_type, options, is_required, position). Field types: text, number, boolean, single_select, multi_select, textarea, datetime
+- **entity_type_metrics** — Default metric assignments per entity type (e.g. person → mood, health, sleep, diet, behavior)
 - **entities** — Things being tracked. entity_type_id FK to entity_types. Attributes JSONB, PostGIS location, taxonomy_path, soft-delete via is_active
-- **entity_trackers** — Per-entity tracker overrides (enable/disable specific trackers for an individual entity)
+- **entity_metrics** — Per-entity metric overrides (enable/disable specific metrics for an individual entity)
 - **relationships** — Directed connections between entities. Plain text `type` field (located_in, manages, part_of, etc.). Temporal validity (valid_from/valid_to)
-- **observations** — Structured measurements. `field_values` JSONB stores tracker field data. entity_id FK to entities, tracker_id FK to trackers, observer_id FK to auth.users
+- **observations** — Structured measurements. `field_values` JSONB stores metric field data. entity_id FK to entities, metric_id FK to metrics, observer_id FK to auth.users
 - **audit_log** — Action history per tenant
 
-### Tracker-Based Observation Model
+### Metric-Based Observation Model
 
-Observations use structured JSONB `field_values` keyed by tracker field codes. Each tracker defines its fields (with types, options, required flags). The API validates required fields on creation. Example:
+Observations use structured JSONB `field_values` keyed by metric field codes. Each metric defines its fields (with types, options, required flags). The API validates required fields on creation. Example:
+
 ```json
 {
   "entity_id": "uuid",
-  "tracker": "mood",
+  "metric": "mood",
   "field_values": { "mood": "good", "energy": "high", "notes": "Feeling great" }
 }
 ```
 
-### Entity Type → Tracker Defaults
+### Entity Type → Metric Defaults
 
-Each entity type has default trackers assigned via `entity_type_trackers`:
+Each entity type has default metrics assigned via `entity_type_metrics`:
+
 - person → behavior, diet, sleep, health, mood
 - plant → soil, health, growth, harvest
 - animal → health, diet, behavior, growth
@@ -97,9 +105,9 @@ Each entity type has default trackers assigned via `entity_type_trackers`:
 - **`tenant_members` table**: Users can view own memberships (`user_id = auth.uid()`), view all memberships in their active tenant, create own memberships, and update own memberships.
 - **Profiles table**: SELECT policy uses `auth.uid() = id` directly (own profile) plus an EXISTS check on `tenant_members` (profiles of people in the same active tenant). Never subqueries back into profiles.
 - **Tenant creation**: The `POST /api/v1/tenants` route calls `ensureProfile`, generates a tenant UUID, inserts the tenant, creates a `tenant_members` row (admin, active), then fetches the tenant.
-- **entity_types, trackers, tracker_fields**: Read-only, visible to all authenticated users (`auth.uid() IS NOT NULL`).
-- **entity_type_trackers**: Read-only, visible to all authenticated users.
-- **entity_trackers**: RLS checks entity ownership via EXISTS on entities table with `tenant_id = get_my_tenant_id()`.
+- **entity_types, metrics, metric_fields**: Read-only, visible to all authenticated users (`auth.uid() IS NOT NULL`).
+- **entity_type_metrics**: Read-only, visible to all authenticated users.
+- **entity_metrics**: RLS checks entity ownership via EXISTS on entities table with `tenant_id = get_my_tenant_id()`.
 - **All tenant-scoped tables** (entities, relationships, observations): RLS policies use `tenant_id = get_my_tenant_id()`.
 
 ### RPC Functions
@@ -115,17 +123,17 @@ All routes under `/api/v1/`:
 - `POST/GET/PUT /api/v1/tenants` — Space CRUD (`/mine` for current)
 - `GET/PUT /api/v1/profiles/me` — Current user profile
 - `GET /api/v1/entity-types` — List entity types (optional `?code=` filter)
-- `GET /api/v1/entity-types/:id` — Entity type detail with default trackers
-- `GET /api/v1/trackers` — List trackers (optional `?entity_type=` filter)
-- `GET /api/v1/trackers/:id` — Tracker detail with fields
+- `GET /api/v1/entity-types/:id` — Entity type detail with default metrics
+- `GET /api/v1/metrics` — List metrics (optional `?entity_type=` filter)
+- `GET /api/v1/metrics/:id` — Metric detail with fields
 - `GET/POST/PUT/DELETE /api/v1/entities` — Entity CRUD (DELETE = soft-delete)
-- `GET /api/v1/entities/:id/trackers` — Entity's effective trackers (defaults + overrides)
-- `PUT /api/v1/entities/:id/trackers` — Upsert entity tracker overrides
+- `GET /api/v1/entities/:id/metrics` — Entity's effective metrics (defaults + overrides)
+- `PUT /api/v1/entities/:id/metrics` — Upsert entity metric overrides
 - `GET /api/v1/entities/:id/relationships` — Entity's relationships
 - `GET /api/v1/entities/:id/related` — Graph traversal (RPC)
 - `GET/POST/DELETE /api/v1/relationships` — Relationship CRUD
 - `GET/POST/DELETE /api/v1/observations` — Observation CRUD with pagination
-- `GET /api/v1/observations/:id` — Single observation with entity/tracker joins
+- `GET /api/v1/observations/:id` — Single observation with entity/metric joins
 - `POST /api/v1/observations/batch` — Batch create observations
 - `GET /api/v1/search/entities?q=` — Entity name search
 - `GET /api/v1/search/taxonomy?path=` — Taxonomy prefix search (RPC)
@@ -144,7 +152,7 @@ pnpm test:workers     # 72 integration tests against local Supabase
 - Tests use **real Supabase auth JWTs** (not mocks) — `adminClient.auth.admin.createUser()` + `signInWithPassword()` to get tokens that pass jose JWKS verification
 - Tests invoke the Hono app via `app.request(path, init, TEST_ENV)` — no HTTP server needed
 - Cleanup uses the **service role client** (bypasses RLS) in `beforeEach`/`afterEach`
-- Delete order matters due to FK constraints: audit_log → observations → entity_trackers → relationships → entities → tenant_members → profiles → tenants → auth users
+- Delete order matters due to FK constraints: audit_log → observations → entity_metrics → relationships → entities → tenant_members → profiles → tenants → auth users
 
 ### Key Files
 
@@ -152,11 +160,11 @@ pnpm test:workers     # 72 integration tests against local Supabase
 - `workers/src/test/helpers/auth.ts` — `createTestUser()`, `authHeaders()`, `deleteTestUser()`
 - `workers/src/test/helpers/request.ts` — `appGet`, `appPost`, `appPut`, `appDelete` wrappers
 - `workers/src/test/helpers/cleanup.ts` — `cleanupAllData()` via service role
-- `workers/src/test/helpers/fixtures.ts` — `setupUserWithTenant()`, `getEntityTypeId()`, `getTrackerId()`, `createEntityForUser()`, `createObservationForUser()`, `createRelationshipForUser()`
+- `workers/src/test/helpers/fixtures.ts` — `setupUserWithTenant()`, `getEntityTypeId()`, `getMetricId()`, `createEntityForUser()`, `createObservationForUser()`, `createRelationshipForUser()`
 
-### Entity Type / Tracker Code Lookup Pattern
+### Entity Type / Metric Code Lookup Pattern
 
-Tests use `getEntityTypeId(user, code)` and `getTrackerId(user, code)` to look up system UUIDs by code. This avoids hardcoding UUIDs. Example: `const personTypeId = await getEntityTypeId(user, "person")`.
+Tests use `getEntityTypeId(user, code)` and `getMetricId(user, code)` to look up system UUIDs by code. This avoids hardcoding UUIDs. Example: `const personTypeId = await getEntityTypeId(user, "person")`.
 
 ## Architecture Patterns
 
@@ -171,6 +179,7 @@ Tests use `getEntityTypeId(user, code)` and `getTrackerId(user, code)` to look u
 ### Profile Lifecycle (ensureProfile)
 
 `ensureProfile` (`workers/src/lib/profile.ts`) is the single source of truth for profile creation:
+
 - **Common path**: SELECT finds existing profile (created by `handle_new_user` trigger) → return it
 - **Trigger missed**: INSERT the profile, then re-SELECT → return it
 - **Stale JWT**: INSERT fails with FK violation (code `23503`, profiles.id → auth.users) → return `null`
@@ -186,18 +195,18 @@ The `ApiClient` in `frontend/src/lib/api.ts` reads the `{ detail }` field from e
 
 ### Code Resolution in API
 
-The API accepts both UUIDs and string codes. For entities: `entity_type_id` (UUID) or `entity_type` (code string, resolved via `entity_types` table). For observations: `tracker_id` (UUID) or `tracker` (code string, resolved via `trackers` table). The API resolves codes to UUIDs internally.
+The API accepts both UUIDs and string codes. For entities: `entity_type_id` (UUID) or `entity_type` (code string, resolved via `entity_types` table). For observations: `metric_id` (UUID) or `metric` (code string, resolved via `metrics` table). The API resolves codes to UUIDs internally.
 
 ### TanStack Query Data Fetching
 
 All data-fetching hooks use TanStack Query v5 (`useQuery`/`useMutation`). The `QueryClientProvider` wraps the app inside `AuthProvider` in `App.tsx`.
 
-- **Query key factory** (`frontend/src/lib/queryKeys.ts`): Centralized key definitions — `queryKeys.entities.list(filters)`, `queryKeys.entities.detail(id)`, `queryKeys.entities.trackers(id)`, `queryKeys.trackers.list(entityType)`, etc. Mutations invalidate the `.all()` prefix to refetch all related queries.
+- **Query key factory** (`frontend/src/lib/queryKeys.ts`): Centralized key definitions — `queryKeys.entities.list(filters)`, `queryKeys.entities.detail(id)`, `queryKeys.entities.metrics(id)`, `queryKeys.metrics.list(entityType)`, etc. Mutations invalidate the `.all()` prefix to refetch all related queries.
 - **State bridge** (`frontend/src/lib/queryState.ts`): Converts TanStack Query status to the app's `State` enum via `getQueryCollectionState()`, `getQuerySingleState()`, `getQueryPaginatedState()`. This preserves the existing component contract.
 - **Defaults**: `staleTime: 2min`, `gcTime: 5min`, `retry: 1`, `refetchOnWindowFocus: false`
 - **Auth gating**: All hooks use `enabled: !authLoading && !!session` to prevent queries before auth resolves
 - **Cache invalidation**: Mutations call `queryClient.invalidateQueries({ queryKey: queryKeys.<domain>.all() })` on success. Updates that return the new object use `setQueryData` for instant UI updates.
-- **Hooks**: `useProfile`, `useTenant`, `useEntityTypes`, `useTrackers`, `useEntityTrackers`, `useEntities`, `useRelationships`, `useObservations`, plus `EntityDetail.tsx` inline fetch
+- **Hooks**: `useProfile`, `useTenant`, `useEntityTypes`, `useMetrics`, `useEntityMetrics`, `useEntities`, `useRelationships`, `useObservations`, plus `EntityDetail.tsx` inline fetch
 - **DevTools**: `ReactQueryDevtools` included (flower icon, bottom-right in dev)
 
 ### Frontend State Enum
@@ -212,7 +221,8 @@ Hooks return `State` from `frontend/src/lib/state.ts`. TanStack Query status is 
 
 ### Dynamic Observation Forms
 
-The `ObservationForm` renders tracker fields dynamically based on the selected tracker's field definitions. The `TrackerFieldInput` component maps `field_type` to the appropriate UI control:
+The `ObservationForm` renders metric fields dynamically based on the selected metric's field definitions. The `MetricFieldInput` component maps `field_type` to the appropriate UI control:
+
 - `text` → Input
 - `number` → Input[type=number]
 - `boolean` → Checkbox
@@ -231,6 +241,7 @@ Required fields are validated client-side before submission.
 ### Migration Idempotency
 
 Migrations should be idempotent where possible:
+
 - Use `CREATE TABLE IF NOT EXISTS` for tables
 - Use `INSERT ... ON CONFLICT DO NOTHING` for seed-like inserts (e.g., storage buckets)
 - Use `DROP POLICY IF EXISTS` before `CREATE POLICY` when policies may already exist from a prior partial run

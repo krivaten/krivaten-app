@@ -12,7 +12,7 @@ import type {
 
 interface ObservationFilters {
   entity_id?: string;
-  tracker?: string;
+  metric?: string;
   from?: string;
   to?: string;
   page?: number;
@@ -28,7 +28,7 @@ export function useObservations(filters?: ObservationFilters) {
     queryFn: () => {
       const params = new URLSearchParams();
       if (filters?.entity_id) params.set("entity_id", filters.entity_id);
-      if (filters?.tracker) params.set("tracker", filters.tracker);
+      if (filters?.metric) params.set("metric", filters.metric);
       if (filters?.from) params.set("from", filters.from);
       if (filters?.to) params.set("to", filters.to);
       if (filters?.page) params.set("page", String(filters.page));

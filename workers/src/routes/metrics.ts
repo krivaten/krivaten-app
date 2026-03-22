@@ -10,17 +10,17 @@ function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
 }
 
-const trackers = new Hono<{ Bindings: Env; Variables: Variables }>();
-trackers.use("*", authMiddleware);
+const metrics = new Hono<{ Bindings: Env; Variables: Variables }>();
+metrics.use("*", authMiddleware);
 
-// GET /api/v1/trackers — List trackers, optionally filtered by entity type code
-trackers.get("/api/v1/trackers", async (c) => {
+// GET /api/v1/metrics — List metrics, optionally filtered by entity type code
+metrics.get("/api/v1/metrics", async (c) => {
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
 
   const entityTypeCode = c.req.query("entity_type");
 
   if (entityTypeCode) {
-    // Look up entity type by code, then join through entity_type_trackers
+    // Look up entity type by code, then join through entity_type_metrics
     const { data: entityType } = await supabase
       .from("entity_types")
       .select("id")
@@ -32,34 +32,34 @@ trackers.get("/api/v1/trackers", async (c) => {
     }
 
     const { data, error } = await supabase
-      .from("entity_type_trackers")
-      .select("position, tracker:trackers(*, fields:tracker_fields(*))")
+      .from("entity_type_metrics")
+      .select("position, metric:metrics(*, fields:metric_fields(*))")
       .eq("entity_type_id", entityType.id)
       .order("position");
 
     if (error) {
       return c.json(
-        { detail: `Error fetching trackers: ${error.message}` },
+        { detail: `Error fetching metrics: ${error.message}` },
         500,
       );
     }
 
-    // Flatten: return the tracker objects with fields, sorted by position
-    const trackerList = (data || [])
-      .map((row: { tracker: unknown }) => row.tracker)
+    // Flatten: return the metric objects with fields, sorted by position
+    const metricList = (data || [])
+      .map((row: { metric: unknown }) => row.metric)
       .filter(Boolean);
-    return c.json(trackerList);
+    return c.json(metricList);
   }
 
-  // No filter: return all trackers with fields
+  // No filter: return all metrics with fields
   const { data, error } = await supabase
-    .from("trackers")
-    .select("*, fields:tracker_fields(*)")
+    .from("metrics")
+    .select("*, fields:metric_fields(*)")
     .order("name");
 
   if (error) {
     return c.json(
-      { detail: `Error fetching trackers: ${error.message}` },
+      { detail: `Error fetching metrics: ${error.message}` },
       500,
     );
   }
@@ -67,26 +67,26 @@ trackers.get("/api/v1/trackers", async (c) => {
   return c.json(data);
 });
 
-// GET /api/v1/trackers/:id — Single tracker with fields
-trackers.get("/api/v1/trackers/:id", async (c) => {
+// GET /api/v1/metrics/:id — Single metric with fields
+metrics.get("/api/v1/metrics/:id", async (c) => {
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
   const id = c.req.param("id");
 
   const { data, error } = await supabase
-    .from("trackers")
-    .select("*, fields:tracker_fields(*)")
+    .from("metrics")
+    .select("*, fields:metric_fields(*)")
     .eq("id", id)
     .single();
 
   if (error) {
-    return c.json({ detail: "Tracker not found" }, 404);
+    return c.json({ detail: "Metric not found" }, 404);
   }
 
   return c.json(data);
 });
 
-// POST /api/v1/trackers — Create a custom tracker
-trackers.post("/api/v1/trackers", async (c) => {
+// POST /api/v1/metrics — Create a custom metric
+metrics.post("/api/v1/metrics", async (c) => {
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
   let tenantId: string;
   try { tenantId = await requireTenantId(c); }
@@ -115,25 +115,25 @@ trackers.post("/api/v1/trackers", async (c) => {
     }
   }
 
-  // Insert tracker
-  const { data: tracker, error: trackerError } = await supabase
-    .from("trackers")
+  // Insert metric
+  const { data: metric, error: metricError } = await supabase
+    .from("metrics")
     .insert({ code, name: name.trim(), description: description || null, icon: icon || null, is_system: false, tenant_id: tenantId })
     .select("*")
     .single();
 
-  if (trackerError) {
-    if (trackerError.code === "23505") {
-      return c.json({ detail: `Tracker code "${code}" already exists` }, 409);
+  if (metricError) {
+    if (metricError.code === "23505") {
+      return c.json({ detail: `Metric code "${code}" already exists` }, 409);
     }
-    return c.json({ detail: `Error creating tracker: ${trackerError.message}` }, 500);
+    return c.json({ detail: `Error creating metric: ${metricError.message}` }, 500);
   }
 
   // Insert fields
   let insertedFields: unknown[] = [];
   if (fields && Array.isArray(fields) && fields.length > 0) {
     const fieldRows = fields.map((f: { code: string; name: string; field_type: string; options?: unknown; is_required?: boolean; position?: number }, i: number) => ({
-      tracker_id: tracker.id,
+      metric_id: metric.id,
       code: f.code,
       name: f.name,
       field_type: f.field_type,
@@ -142,7 +142,7 @@ trackers.post("/api/v1/trackers", async (c) => {
       position: f.position ?? i,
     }));
     const { data: fieldData, error: fieldError } = await supabase
-      .from("tracker_fields")
+      .from("metric_fields")
       .insert(fieldRows)
       .select("*");
     if (fieldError) {
@@ -151,41 +151,41 @@ trackers.post("/api/v1/trackers", async (c) => {
     insertedFields = fieldData || [];
   }
 
-  return c.json({ ...tracker, fields: insertedFields }, 201);
+  return c.json({ ...metric, fields: insertedFields }, 201);
 });
 
-// PUT /api/v1/trackers/:id — Update a custom tracker
-trackers.put("/api/v1/trackers/:id", async (c) => {
+// PUT /api/v1/metrics/:id — Update a custom metric
+metrics.put("/api/v1/metrics/:id", async (c) => {
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
   const id = c.req.param("id");
 
-  // Fetch existing tracker
+  // Fetch existing metric
   const { data: existing, error: fetchErr } = await supabase
-    .from("trackers")
-    .select("*, fields:tracker_fields(*)")
+    .from("metrics")
+    .select("*, fields:metric_fields(*)")
     .eq("id", id)
     .single();
 
   if (fetchErr || !existing) {
-    return c.json({ detail: "Tracker not found" }, 404);
+    return c.json({ detail: "Metric not found" }, 404);
   }
   if (existing.is_system) {
-    return c.json({ detail: "Cannot edit system trackers" }, 403);
+    return c.json({ detail: "Cannot edit system metrics" }, 403);
   }
 
   const body = await c.req.json();
   const { name, description, icon, fields } = body;
 
-  // Update tracker metadata
+  // Update metric metadata
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name.trim();
   if (description !== undefined) updates.description = description || null;
   if (icon !== undefined) updates.icon = icon || null;
 
   if (Object.keys(updates).length > 0) {
-    const { error: updateErr } = await supabase.from("trackers").update(updates).eq("id", id);
+    const { error: updateErr } = await supabase.from("metrics").update(updates).eq("id", id);
     if (updateErr) {
-      return c.json({ detail: `Error updating tracker: ${updateErr.message}` }, 500);
+      return c.json({ detail: `Error updating metric: ${updateErr.message}` }, 500);
     }
   }
 
@@ -204,14 +204,14 @@ trackers.put("/api/v1/trackers/:id", async (c) => {
     // Delete removed fields
     for (const existingId of existingFieldIds) {
       if (!incomingFieldIds.has(existingId)) {
-        await supabase.from("tracker_fields").delete().eq("id", existingId);
+        await supabase.from("metric_fields").delete().eq("id", existingId);
       }
     }
 
     // Upsert fields
     for (const f of fields) {
       const fieldData = {
-        tracker_id: id,
+        metric_id: id,
         code: f.code,
         name: f.name,
         field_type: f.field_type,
@@ -220,61 +220,61 @@ trackers.put("/api/v1/trackers/:id", async (c) => {
         position: f.position ?? 0,
       };
       if (f.id && existingFieldIds.has(f.id)) {
-        await supabase.from("tracker_fields").update(fieldData).eq("id", f.id);
+        await supabase.from("metric_fields").update(fieldData).eq("id", f.id);
       } else {
-        await supabase.from("tracker_fields").insert(fieldData);
+        await supabase.from("metric_fields").insert(fieldData);
       }
     }
   }
 
   // Re-fetch and return
   const { data: updated } = await supabase
-    .from("trackers")
-    .select("*, fields:tracker_fields(*)")
+    .from("metrics")
+    .select("*, fields:metric_fields(*)")
     .eq("id", id)
     .single();
 
   return c.json(updated);
 });
 
-// DELETE /api/v1/trackers/:id — Delete a custom tracker
-trackers.delete("/api/v1/trackers/:id", async (c) => {
+// DELETE /api/v1/metrics/:id — Delete a custom metric
+metrics.delete("/api/v1/metrics/:id", async (c) => {
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
   const id = c.req.param("id");
 
   const { data: existing, error: fetchErr } = await supabase
-    .from("trackers")
+    .from("metrics")
     .select("id, is_system")
     .eq("id", id)
     .single();
 
   if (fetchErr || !existing) {
-    return c.json({ detail: "Tracker not found" }, 404);
+    return c.json({ detail: "Metric not found" }, 404);
   }
   if (existing.is_system) {
-    return c.json({ detail: "Cannot delete system trackers" }, 403);
+    return c.json({ detail: "Cannot delete system metrics" }, 403);
   }
 
   // Check for observations
   const { count } = await supabase
     .from("observations")
     .select("id", { count: "exact", head: true })
-    .eq("tracker_id", id);
+    .eq("metric_id", id);
 
   if (count && count > 0) {
-    return c.json({ detail: "Cannot delete tracker with existing observations. Remove observations first." }, 409);
+    return c.json({ detail: "Cannot delete metric with existing observations. Remove observations first." }, 409);
   }
 
-  const { error: deleteErr } = await supabase.from("trackers").delete().eq("id", id);
+  const { error: deleteErr } = await supabase.from("metrics").delete().eq("id", id);
   if (deleteErr) {
-    return c.json({ detail: `Error deleting tracker: ${deleteErr.message}` }, 500);
+    return c.json({ detail: `Error deleting metric: ${deleteErr.message}` }, 500);
   }
 
   return c.body(null, 204);
 });
 
-// GET /api/v1/entity-type-trackers — List tracker associations for an entity type
-trackers.get("/api/v1/entity-type-trackers", async (c) => {
+// GET /api/v1/entity-type-metrics — List metric associations for an entity type
+metrics.get("/api/v1/entity-type-metrics", async (c) => {
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
   const entityTypeId = c.req.query("entity_type_id");
 
@@ -283,8 +283,8 @@ trackers.get("/api/v1/entity-type-trackers", async (c) => {
   }
 
   const { data, error } = await supabase
-    .from("entity_type_trackers")
-    .select("id, entity_type_id, tracker_id, position, tenant_id, tracker:trackers(*, fields:tracker_fields(*))")
+    .from("entity_type_metrics")
+    .select("id, entity_type_id, metric_id, position, tenant_id, metric:metrics(*, fields:metric_fields(*))")
     .eq("entity_type_id", entityTypeId)
     .order("position");
 
@@ -292,13 +292,13 @@ trackers.get("/api/v1/entity-type-trackers", async (c) => {
     return c.json({ detail: `Error fetching associations: ${error.message}` }, 500);
   }
 
-  // Deduplicate by tracker_id — tenant row overrides system row
+  // Deduplicate by metric_id — tenant row overrides system row
   const seen = new Map<string, unknown>();
   for (const row of data || []) {
-    const existing = seen.get(row.tracker_id);
+    const existing = seen.get(row.metric_id);
     if (!existing || row.tenant_id !== null) {
-      seen.set(row.tracker_id, {
-        tracker: row.tracker,
+      seen.set(row.metric_id, {
+        metric: row.metric,
         position: row.position,
         is_system_default: row.tenant_id === null,
       });
@@ -308,15 +308,15 @@ trackers.get("/api/v1/entity-type-trackers", async (c) => {
   return c.json(Array.from(seen.values()));
 });
 
-// PUT /api/v1/entity-type-trackers — Replace tenant associations for an entity type
-trackers.put("/api/v1/entity-type-trackers", async (c) => {
+// PUT /api/v1/entity-type-metrics — Replace tenant associations for an entity type
+metrics.put("/api/v1/entity-type-metrics", async (c) => {
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
   let tenantId: string;
   try { tenantId = await requireTenantId(c); }
   catch { return c.json({ detail: "You must belong to a space" }, 400); }
 
   const body = await c.req.json();
-  const { entity_type_id, trackers: trackerList } = body;
+  const { entity_type_id, metrics: metricList } = body;
 
   if (!entity_type_id) {
     return c.json({ detail: "entity_type_id is required" }, 400);
@@ -324,20 +324,20 @@ trackers.put("/api/v1/entity-type-trackers", async (c) => {
 
   // Delete existing tenant-scoped associations for this entity type
   await supabase
-    .from("entity_type_trackers")
+    .from("entity_type_metrics")
     .delete()
     .eq("entity_type_id", entity_type_id)
     .eq("tenant_id", tenantId);
 
   // Insert new ones
-  if (trackerList && Array.isArray(trackerList) && trackerList.length > 0) {
-    const rows = trackerList.map((t: { tracker_id: string; position?: number }, i: number) => ({
+  if (metricList && Array.isArray(metricList) && metricList.length > 0) {
+    const rows = metricList.map((t: { metric_id: string; position?: number }, i: number) => ({
       entity_type_id,
-      tracker_id: t.tracker_id,
+      metric_id: t.metric_id,
       position: t.position ?? i,
       tenant_id: tenantId,
     }));
-    const { error } = await supabase.from("entity_type_trackers").insert(rows);
+    const { error } = await supabase.from("entity_type_metrics").insert(rows);
     if (error) {
       return c.json({ detail: `Error saving associations: ${error.message}` }, 500);
     }
@@ -345,17 +345,17 @@ trackers.put("/api/v1/entity-type-trackers", async (c) => {
 
   // Return updated list
   const { data } = await supabase
-    .from("entity_type_trackers")
-    .select("id, entity_type_id, tracker_id, position, tenant_id, tracker:trackers(*, fields:tracker_fields(*))")
+    .from("entity_type_metrics")
+    .select("id, entity_type_id, metric_id, position, tenant_id, metric:metrics(*, fields:metric_fields(*))")
     .eq("entity_type_id", entity_type_id)
     .order("position");
 
   const seen = new Map<string, unknown>();
   for (const row of data || []) {
-    const existing = seen.get(row.tracker_id);
+    const existing = seen.get(row.metric_id);
     if (!existing || row.tenant_id !== null) {
-      seen.set(row.tracker_id, {
-        tracker: row.tracker,
+      seen.set(row.metric_id, {
+        metric: row.metric,
         position: row.position,
         is_system_default: row.tenant_id === null,
       });
@@ -365,4 +365,4 @@ trackers.put("/api/v1/entity-type-trackers", async (c) => {
   return c.json(Array.from(seen.values()));
 });
 
-export default trackers;
+export default metrics;

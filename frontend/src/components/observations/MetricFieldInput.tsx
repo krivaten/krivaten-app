@@ -9,15 +9,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { TrackerField } from "@/types/tracker";
+import type { MetricField } from "@/types/metric";
 
 interface Props {
-  field: TrackerField;
+  field: MetricField;
   value: unknown;
   onChange: (value: unknown) => void;
 }
 
-export function TrackerFieldInput({ field, value, onChange }: Props) {
+export function MetricFieldInput({ field, value, onChange }: Props) {
   const label = `${field.name}${field.is_required ? " *" : ""}`;
 
   switch (field.field_type) {

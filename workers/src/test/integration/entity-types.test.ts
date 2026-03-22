@@ -43,14 +43,14 @@ describe("Entity Types Routes", () => {
   });
 
   describe("GET /api/v1/entity-types/:id", () => {
-    it("returns single entity type with default trackers", async () => {
+    it("returns single entity type with default metrics", async () => {
       const personId = await getEntityTypeId(user, "person");
       const res = await appGet(`/api/v1/entity-types/${personId}`, headers);
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.code).toBe("person");
-      expect(body.trackers).toBeDefined();
-      expect(body.trackers.length).toBeGreaterThan(0);
+      expect(body.metrics).toBeDefined();
+      expect(body.metrics.length).toBeGreaterThan(0);
     });
 
     it("returns 404 for non-existent id", async () => {

@@ -4,17 +4,17 @@ import { api } from "@/lib/api";
 import { State } from "@/lib/state";
 import { getQueryCollectionState } from "@/lib/queryState";
 import { queryKeys } from "@/lib/queryKeys";
-import type { EntityTypeTrackerAssociation } from "@/types/tracker";
+import type { EntityTypeMetricAssociation } from "@/types/metric";
 
-export function useEntityTypeTrackers(entityTypeId: string) {
+export function useEntityTypeMetrics(entityTypeId: string) {
   const { session, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: queryKeys.entityTypeTrackers.list(entityTypeId),
+    queryKey: queryKeys.entityTypeMetrics.list(entityTypeId),
     queryFn: () =>
-      api.get<EntityTypeTrackerAssociation[]>(
-        `/api/v1/entity-type-trackers?entity_type_id=${entityTypeId}`,
+      api.get<EntityTypeMetricAssociation[]>(
+        `/api/v1/entity-type-metrics?entity_type_id=${entityTypeId}`,
       ),
     enabled: !authLoading && !!session && !!entityTypeId,
   });
@@ -23,13 +23,13 @@ export function useEntityTypeTrackers(entityTypeId: string) {
     !authLoading && !session ? State.NONE : getQueryCollectionState(query);
 
   const updateMutation = useMutation({
-    mutationFn: (trackers: Array<{ tracker_id: string; position: number }>) =>
-      api.put<EntityTypeTrackerAssociation[]>("/api/v1/entity-type-trackers", {
+    mutationFn: (metrics: Array<{ metric_id: string; position: number }>) =>
+      api.put<EntityTypeMetricAssociation[]>("/api/v1/entity-type-metrics", {
         entity_type_id: entityTypeId,
-        trackers,
+        metrics,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.entityTypeTrackers.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.entityTypeMetrics.all() });
     },
   });
 

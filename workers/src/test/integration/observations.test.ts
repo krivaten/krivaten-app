@@ -23,12 +23,12 @@ describe("Observations Routes", () => {
   });
 
   describe("POST /api/v1/observations", () => {
-    it("creates observation with tracker code and field_values", async () => {
+    it("creates observation with metric code and field_values", async () => {
       const res = await appPost(
         "/api/v1/observations",
         {
           entity_id: entity.id,
-          tracker: "mood",
+          metric: "mood",
           field_values: { mood: "good", energy: "high" },
         },
         headers,
@@ -40,32 +40,32 @@ describe("Observations Routes", () => {
       expect(body.observer_id).toBe(user.id);
     });
 
-    it("creates observation with tracker_id (UUID)", async () => {
-      // Get tracker id for growth
-      const trackersRes = await appGet("/api/v1/trackers", headers);
-      const trackers: Array<{ id: string; code: string }> = await trackersRes.json();
-      const growth = trackers.find((t) => t.code === "growth");
+    it("creates observation with metric_id (UUID)", async () => {
+      // Get metric id for growth
+      const metricsRes = await appGet("/api/v1/metrics", headers);
+      const metrics: Array<{ id: string; code: string }> = await metricsRes.json();
+      const growth = metrics.find((t) => t.code === "growth");
 
       const res = await appPost(
         "/api/v1/observations",
         {
           entity_id: entity.id,
-          tracker_id: growth!.id,
+          metric_id: growth!.id,
           field_values: { height_cm: 45 },
         },
         headers,
       );
       expect(res.status).toBe(201);
       const body = await res.json();
-      expect(body.tracker_id).toBe(growth!.id);
+      expect(body.metric_id).toBe(growth!.id);
     });
 
-    it("returns observation with joined entity and tracker", async () => {
+    it("returns observation with joined entity and metric", async () => {
       const res = await appPost(
         "/api/v1/observations",
         {
           entity_id: entity.id,
-          tracker: "health",
+          metric: "health",
           field_values: { status: "good" },
         },
         headers,
@@ -74,20 +74,20 @@ describe("Observations Routes", () => {
       const body = await res.json();
       expect(body.entity).toBeDefined();
       expect(body.entity.name).toBe("Tomato");
-      expect(body.tracker).toBeDefined();
-      expect(body.tracker.code).toBe("health");
+      expect(body.metric).toBeDefined();
+      expect(body.metric.code).toBe("health");
     });
 
     it("rejects missing entity_id", async () => {
       const res = await appPost(
         "/api/v1/observations",
-        { tracker: "mood", field_values: { mood: "good" } },
+        { metric: "mood", field_values: { mood: "good" } },
         headers,
       );
       expect(res.status).toBe(400);
     });
 
-    it("rejects missing tracker", async () => {
+    it("rejects missing metric", async () => {
       const res = await appPost(
         "/api/v1/observations",
         { entity_id: entity.id, field_values: { mood: "good" } },
@@ -96,28 +96,28 @@ describe("Observations Routes", () => {
       expect(res.status).toBe(400);
     });
 
-    it("rejects invalid tracker code", async () => {
+    it("rejects invalid metric code", async () => {
       const res = await appPost(
         "/api/v1/observations",
         {
           entity_id: entity.id,
-          tracker: "nonexistent",
+          metric: "nonexistent",
           field_values: { foo: "bar" },
         },
         headers,
       );
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.detail).toContain("tracker");
+      expect(body.detail).toContain("metric");
     });
 
     it("validates required fields", async () => {
-      // milestones tracker has "name" as required
+      // milestones metric has "name" as required
       const res = await appPost(
         "/api/v1/observations",
         {
           entity_id: entity.id,
-          tracker: "milestones",
+          metric: "milestones",
           field_values: { completed: true },
         },
         headers,
@@ -132,7 +132,7 @@ describe("Observations Routes", () => {
         "/api/v1/observations",
         {
           entity_id: entity.id,
-          tracker: "milestones",
+          metric: "milestones",
           field_values: { name: "v1.0 Release", completed: false },
         },
         headers,
@@ -145,7 +145,7 @@ describe("Observations Routes", () => {
         "/api/v1/observations",
         {
           entity_id: entity.id,
-          tracker: "mood",
+          metric: "mood",
           field_values: { mood: "good" },
           notes: "Feeling great today",
         },
@@ -163,9 +163,9 @@ describe("Observations Routes", () => {
         "/api/v1/observations/batch",
         {
           observations: [
-            { entity_id: entity.id, tracker: "growth", field_values: { height_cm: 10 } },
-            { entity_id: entity.id, tracker: "growth", field_values: { height_cm: 15 } },
-            { entity_id: entity.id, tracker: "growth", field_values: { height_cm: 20 } },
+            { entity_id: entity.id, metric: "growth", field_values: { height_cm: 10 } },
+            { entity_id: entity.id, metric: "growth", field_values: { height_cm: 15 } },
+            { entity_id: entity.id, metric: "growth", field_values: { height_cm: 20 } },
           ],
         },
         headers,
@@ -180,12 +180,12 @@ describe("Observations Routes", () => {
     it("lists observations with pagination", async () => {
       await createObservationForUser(user, {
         entity_id: entity.id,
-        tracker: "growth",
+        metric: "growth",
         field_values: { height_cm: 10 },
       });
       await createObservationForUser(user, {
         entity_id: entity.id,
-        tracker: "growth",
+        metric: "growth",
         field_values: { height_cm: 15 },
       });
 
@@ -200,12 +200,12 @@ describe("Observations Routes", () => {
       const entity2 = await createEntityForUser(user, { entity_type: "plant", name: "Basil" });
       await createObservationForUser(user, {
         entity_id: entity.id,
-        tracker: "growth",
+        metric: "growth",
         field_values: { height_cm: 10 },
       });
       await createObservationForUser(user, {
         entity_id: entity2.id,
-        tracker: "growth",
+        metric: "growth",
         field_values: { height_cm: 20 },
       });
 
@@ -215,19 +215,19 @@ describe("Observations Routes", () => {
       expect(body.data[0].entity_id).toBe(entity.id);
     });
 
-    it("filters by tracker code", async () => {
+    it("filters by metric code", async () => {
       await createObservationForUser(user, {
         entity_id: entity.id,
-        tracker: "growth",
+        metric: "growth",
         field_values: { height_cm: 10 },
       });
       await createObservationForUser(user, {
         entity_id: entity.id,
-        tracker: "health",
+        metric: "health",
         field_values: { status: "good" },
       });
 
-      const res = await appGet("/api/v1/observations?tracker=growth", headers);
+      const res = await appGet("/api/v1/observations?metric=growth", headers);
       const body = await res.json();
       expect(body.data).toHaveLength(1);
       expect(body.data[0].field_values.height_cm).toBe(10);
@@ -236,13 +236,13 @@ describe("Observations Routes", () => {
     it("filters by time range (from/to)", async () => {
       await createObservationForUser(user, {
         entity_id: entity.id,
-        tracker: "growth",
+        metric: "growth",
         field_values: { height_cm: 10 },
         observed_at: "2026-01-01T00:00:00Z",
       });
       await createObservationForUser(user, {
         entity_id: entity.id,
-        tracker: "growth",
+        metric: "growth",
         field_values: { height_cm: 20 },
         observed_at: "2026-02-15T00:00:00Z",
       });
@@ -258,10 +258,10 @@ describe("Observations Routes", () => {
   });
 
   describe("GET /api/v1/observations/:id", () => {
-    it("returns observation with joined entity and tracker", async () => {
+    it("returns observation with joined entity and metric", async () => {
       const obs = await createObservationForUser(user, {
         entity_id: entity.id,
-        tracker: "growth",
+        metric: "growth",
         field_values: { height_cm: 45 },
       });
 
@@ -270,8 +270,8 @@ describe("Observations Routes", () => {
       const body = await res.json();
       expect(body.entity).toBeDefined();
       expect(body.entity.name).toBe("Tomato");
-      expect(body.tracker).toBeDefined();
-      expect(body.tracker.code).toBe("growth");
+      expect(body.metric).toBeDefined();
+      expect(body.metric.code).toBe("growth");
     });
   });
 
@@ -279,7 +279,7 @@ describe("Observations Routes", () => {
     it("deletes own observation, returns 204", async () => {
       const obs = await createObservationForUser(user, {
         entity_id: entity.id,
-        tracker: "mood",
+        metric: "mood",
         field_values: { mood: "neutral" },
       });
 

@@ -1,24 +1,24 @@
 import type { Entity } from "./entity";
-import type { Tracker } from "./tracker";
+import type { Metric } from "./metric";
 
 export interface Observation {
   id: string;
   tenant_id: string;
   entity_id: string;
-  tracker_id: string;
+  metric_id: string;
   observer_id: string | null;
   observed_at: string;
   field_values: Record<string, unknown>;
   notes: string | null;
   created_at: string;
   entity?: Pick<Entity, "id" | "name">;
-  tracker?: Pick<Tracker, "id" | "code" | "name">;
+  metric?: Pick<Metric, "id" | "code" | "name">;
 }
 
 export interface ObservationCreate {
   entity_id: string;
-  tracker_id?: string;
-  tracker?: string;
+  metric_id?: string;
+  metric?: string;
   observed_at?: string;
   field_values: Record<string, unknown>;
   notes?: string;

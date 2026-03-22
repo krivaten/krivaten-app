@@ -4,23 +4,23 @@ import { api } from "@/lib/api";
 import { State } from "@/lib/state";
 import { getQueryCollectionState } from "@/lib/queryState";
 import { queryKeys } from "@/lib/queryKeys";
-import type { Tracker } from "@/types/tracker";
+import type { Metric } from "@/types/metric";
 
-export interface EntityTrackerEntry {
-  tracker: Tracker;
+export interface EntityMetricEntry {
+  metric: Metric;
   is_default: boolean;
   is_enabled: boolean;
 }
 
-export function useEntityTrackers(entityId: string) {
+export function useEntityMetrics(entityId: string) {
   const { session, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: queryKeys.entities.trackers(entityId),
+    queryKey: queryKeys.entities.metrics(entityId),
     queryFn: () =>
-      api.get<EntityTrackerEntry[]>(
-        `/api/v1/entities/${entityId}/trackers`,
+      api.get<EntityMetricEntry[]>(
+        `/api/v1/entities/${entityId}/metrics`,
       ),
     enabled: !authLoading && !!session && !!entityId,
   });
@@ -28,27 +28,27 @@ export function useEntityTrackers(entityId: string) {
   const state =
     !authLoading && !session ? State.NONE : getQueryCollectionState(query);
 
-  const updateTrackersMutation = useMutation({
+  const updateMetricsMutation = useMutation({
     mutationFn: (
-      overrides: Array<{ tracker_id: string; is_enabled: boolean }>,
+      overrides: Array<{ metric_id: string; is_enabled: boolean }>,
     ) =>
-      api.put<EntityTrackerEntry[]>(
-        `/api/v1/entities/${entityId}/trackers`,
+      api.put<EntityMetricEntry[]>(
+        `/api/v1/entities/${entityId}/metrics`,
         overrides,
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.entities.trackers(entityId),
+        queryKey: queryKeys.entities.metrics(entityId),
       });
     },
   });
 
   return {
-    trackers: query.data ?? [],
-    enabledTrackers: (query.data ?? []).filter((t) => t.is_enabled),
+    metrics: query.data ?? [],
+    enabledMetrics: (query.data ?? []).filter((t) => t.is_enabled),
     state,
     error: query.error?.message ?? null,
-    updateTrackers: updateTrackersMutation.mutateAsync,
+    updateMetrics: updateMetricsMutation.mutateAsync,
     refetch: query.refetch,
   };
 }

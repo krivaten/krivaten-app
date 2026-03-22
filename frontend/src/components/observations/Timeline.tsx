@@ -88,9 +88,9 @@ export function Timeline({ observations, state, loadingMore, hasMore, onLoadMore
                 <span className="text-sm font-medium">
                   {obs.entity?.name || "Unknown"}
                 </span>
-                {obs.tracker && (
+                {obs.metric && (
                   <Badge variant="outline" className="text-xs">
-                    {obs.tracker.name}
+                    {obs.metric.name}
                   </Badge>
                 )}
                 {isOwn && (

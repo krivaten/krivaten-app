@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useObservations } from "@/hooks/useObservations";
-import { useTrackers } from "@/hooks/useTrackers";
+import { useMetrics } from "@/hooks/useMetrics";
 import { useEntities } from "@/hooks/useEntities";
 import { ObservationForm } from "@/components/observations/ObservationForm";
 import { BatchObservationForm } from "@/components/observations/BatchObservationForm";
@@ -22,13 +22,13 @@ export default function Observations() {
   const { user } = useAuth();
   const [formOpen, setFormOpen] = useState(false);
   const [batchOpen, setBatchOpen] = useState(false);
-  const [tracker, setTracker] = useState("");
+  const [metric, setMetric] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [entityId, setEntityId] = useState("");
   const [page, setPage] = useState(1);
 
-  const { trackers } = useTrackers();
+  const { metrics } = useMetrics();
   const { entities } = useEntities();
 
   const entityOptions = entities.map((e) => ({
@@ -40,13 +40,13 @@ export default function Observations() {
   const filters = useMemo(
     () => ({
       entity_id: entityId || undefined,
-      tracker: tracker || undefined,
+      metric: metric || undefined,
       from: fromDate || undefined,
       to: toDate || undefined,
       page,
       per_page: 30,
     }),
-    [entityId, tracker, fromDate, toDate, page],
+    [entityId, metric, fromDate, toDate, page],
   );
 
   const {
@@ -62,7 +62,7 @@ export default function Observations() {
   return (
     <>
       <PageTitle
-        title="Metrics"
+        title="Observations"
         description="Log and review your observations for entities."
       >
         <div className="flex gap-2">
@@ -87,18 +87,18 @@ export default function Observations() {
           className="w-[200px]"
         />
         <Select
-          value={tracker}
+          value={metric}
           onValueChange={(v) => {
-            setTracker(v === "all" ? "" : v);
+            setMetric(v === "all" ? "" : v);
             setPage(1);
           }}
         >
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Tracker..." />
+            <SelectValue placeholder="Metric..." />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Trackers</SelectItem>
-            {trackers.map((t) => (
+            <SelectItem value="all">All Metrics</SelectItem>
+            {metrics.map((t) => (
               <SelectItem key={t.id} value={t.code}>
                 {t.name}
               </SelectItem>
@@ -125,13 +125,13 @@ export default function Observations() {
           className="w-[160px]"
           placeholder="To..."
         />
-        {(entityId || tracker || fromDate || toDate) && (
+        {(entityId || metric || fromDate || toDate) && (
           <Button
             variant="ghost"
             size="sm"
             onClick={() => {
               setEntityId("");
-              setTracker("");
+              setMetric("");
               setFromDate("");
               setToDate("");
               setPage(1);

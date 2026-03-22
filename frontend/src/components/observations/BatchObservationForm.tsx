@@ -18,8 +18,8 @@ import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/ui/combobox";
 import { toast } from "sonner";
 import { useEntities } from "@/hooks/useEntities";
-import { useTrackers, useTracker } from "@/hooks/useTrackers";
-import { TrackerFieldInput } from "./TrackerFieldInput";
+import { useMetrics, useMetric } from "@/hooks/useMetrics";
+import { MetricFieldInput } from "./MetricFieldInput";
 import type { ObservationCreate } from "@/types/observation";
 
 interface BatchRow {
@@ -40,18 +40,18 @@ interface Props {
 
 export function BatchObservationForm({ open, onOpenChange, onSuccess, onBatchSubmit }: Props) {
   const { entities } = useEntities();
-  const { trackers } = useTrackers();
-  const [trackerId, setTrackerId] = useState("");
+  const { metrics } = useMetrics();
+  const [metricId, setMetricId] = useState("");
   const [observedAt, setObservedAt] = useState("");
   const [rows, setRows] = useState<BatchRow[]>([emptyRow()]);
   const [loading, setLoading] = useState(false);
 
-  const { tracker: selectedTracker } = useTracker(trackerId);
+  const { metric: selectedMetric } = useMetric(metricId);
 
-  // Reset rows when tracker changes
+  // Reset rows when metric changes
   useEffect(() => {
     setRows([emptyRow()]);
-  }, [trackerId]);
+  }, [metricId]);
 
   const entityOptions = entities.map((e) => ({
     value: e.id,
@@ -59,7 +59,7 @@ export function BatchObservationForm({ open, onOpenChange, onSuccess, onBatchSub
     description: e.entity_type?.name,
   }));
 
-  const sortedFields = (selectedTracker?.fields ?? []).sort(
+  const sortedFields = (selectedMetric?.fields ?? []).sort(
     (a, b) => a.position - b.position,
   );
 
@@ -107,7 +107,7 @@ export function BatchObservationForm({ open, onOpenChange, onSuccess, onBatchSub
         }
         return {
           entity_id: row.entityId,
-          tracker_id: trackerId,
+          metric_id: metricId,
           field_values: cleanValues,
           observed_at: observedAt || undefined,
         };
@@ -138,13 +138,13 @@ export function BatchObservationForm({ open, onOpenChange, onSuccess, onBatchSub
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label>Tracker (applies to all rows)</Label>
-            <Select value={trackerId} onValueChange={setTrackerId}>
+            <Label>Metric (applies to all rows)</Label>
+            <Select value={metricId} onValueChange={setMetricId}>
               <SelectTrigger>
-                <SelectValue placeholder="Select tracker..." />
+                <SelectValue placeholder="Select metric..." />
               </SelectTrigger>
               <SelectContent>
-                {trackers.map((t) => (
+                {metrics.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
                     {t.name}
                   </SelectItem>
@@ -153,7 +153,7 @@ export function BatchObservationForm({ open, onOpenChange, onSuccess, onBatchSub
             </Select>
           </div>
 
-          {trackerId && (
+          {metricId && (
             <div className="space-y-2">
               <Label htmlFor="batch-observed-at">Date & Time for all rows (optional)</Label>
               <Input
@@ -168,7 +168,7 @@ export function BatchObservationForm({ open, onOpenChange, onSuccess, onBatchSub
             </div>
           )}
 
-          {trackerId && (
+          {metricId && (
             <div className="space-y-4">
               {rows.map((row, i) => (
                 <div key={i} className="rounded-lg border p-3 space-y-3">
@@ -196,7 +196,7 @@ export function BatchObservationForm({ open, onOpenChange, onSuccess, onBatchSub
                     emptyMessage="None found."
                   />
                   {sortedFields.map((field) => (
-                    <TrackerFieldInput
+                    <MetricFieldInput
                       key={field.id}
                       field={field}
                       value={row.fieldValues[field.code]}
@@ -208,7 +208,7 @@ export function BatchObservationForm({ open, onOpenChange, onSuccess, onBatchSub
             </div>
           )}
 
-          {trackerId && (
+          {metricId && (
             <Button type="button" variant="outline" size="sm" onClick={addRow}>
               Add Row
             </Button>
@@ -217,7 +217,7 @@ export function BatchObservationForm({ open, onOpenChange, onSuccess, onBatchSub
           <Button
             type="submit"
             disabled={
-              loading || !trackerId || rows.every((r) => !r.entityId)
+              loading || !metricId || rows.every((r) => !r.entityId)
             }
             className="w-full"
           >

@@ -202,13 +202,13 @@ describe("Entities Routes", () => {
     });
   });
 
-  describe("GET /api/v1/entities/:id/trackers", () => {
-    it("returns default trackers for a person entity", async () => {
+  describe("GET /api/v1/entities/:id/metrics", () => {
+    it("returns default metrics for a person entity", async () => {
       const entity = await createEntityForUser(user, { entity_type: "person", name: "Alice" });
 
-      const res = await appGet(`/api/v1/entities/${entity.id}/trackers`, headers);
+      const res = await appGet(`/api/v1/entities/${entity.id}/metrics`, headers);
       expect(res.status).toBe(200);
-      const body: Array<{ tracker: { code: string }; is_default: boolean; is_enabled: boolean }> =
+      const body: Array<{ metric: { code: string }; is_default: boolean; is_enabled: boolean }> =
         await res.json();
       expect(body.length).toBe(5); // behavior, diet, sleep, health, mood
       expect(body.every((t) => t.is_default === true)).toBe(true);
@@ -216,28 +216,28 @@ describe("Entities Routes", () => {
     });
   });
 
-  describe("PUT /api/v1/entities/:id/trackers", () => {
-    it("adds and disables tracker overrides", async () => {
+  describe("PUT /api/v1/entities/:id/metrics", () => {
+    it("adds and disables metric overrides", async () => {
       const entity = await createEntityForUser(user, { entity_type: "person", name: "Alice" });
 
-      // Get default trackers to find one to disable
-      const listRes = await appGet(`/api/v1/entities/${entity.id}/trackers`, headers);
-      const trackers: Array<{ tracker: { id: string; code: string } }> = await listRes.json();
-      const behaviorTracker = trackers.find((t) => t.tracker.code === "behavior");
-      expect(behaviorTracker).toBeDefined();
+      // Get default metrics to find one to disable
+      const listRes = await appGet(`/api/v1/entities/${entity.id}/metrics`, headers);
+      const metrics: Array<{ metric: { id: string; code: string } }> = await listRes.json();
+      const behaviorMetric = metrics.find((t) => t.metric.code === "behavior");
+      expect(behaviorMetric).toBeDefined();
 
-      // Disable behavior tracker
+      // Disable behavior metric
       const res = await appPut(
-        `/api/v1/entities/${entity.id}/trackers`,
-        [{ tracker_id: behaviorTracker!.tracker.id, is_enabled: false }],
+        `/api/v1/entities/${entity.id}/metrics`,
+        [{ metric_id: behaviorMetric!.metric.id, is_enabled: false }],
         headers,
       );
       expect(res.status).toBe(200);
 
       // Verify it's disabled
-      const updated = await appGet(`/api/v1/entities/${entity.id}/trackers`, headers);
-      const body: Array<{ tracker: { code: string }; is_enabled: boolean }> = await updated.json();
-      const behavior = body.find((t) => t.tracker.code === "behavior");
+      const updated = await appGet(`/api/v1/entities/${entity.id}/metrics`, headers);
+      const body: Array<{ metric: { code: string }; is_enabled: boolean }> = await updated.json();
+      const behavior = body.find((t) => t.metric.code === "behavior");
       expect(behavior).toBeDefined();
       expect(behavior!.is_enabled).toBe(false);
     });

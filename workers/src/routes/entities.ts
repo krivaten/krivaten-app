@@ -262,8 +262,8 @@ entities.get("/api/v1/entities/:id/relationships", async (c) => {
   return c.json(data);
 });
 
-// GET /api/v1/entities/:id/trackers — Effective trackers for this entity
-entities.get("/api/v1/entities/:id/trackers", async (c) => {
+// GET /api/v1/entities/:id/metrics — Effective metrics for this entity
+entities.get("/api/v1/entities/:id/metrics", async (c) => {
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
   const id = c.req.param("id");
 
@@ -278,55 +278,55 @@ entities.get("/api/v1/entities/:id/trackers", async (c) => {
     return c.json({ detail: "Entity not found" }, 404);
   }
 
-  // Get default trackers for the entity type
+  // Get default metrics for the entity type
   const { data: defaults } = await supabase
-    .from("entity_type_trackers")
-    .select("tracker_id, position, tracker:trackers(*, fields:tracker_fields(*))")
+    .from("entity_type_metrics")
+    .select("metric_id, position, metric:metrics(*, fields:metric_fields(*))")
     .eq("entity_type_id", entity.entity_type_id)
     .order("position");
 
   // Get per-entity overrides
   const { data: overrides } = await supabase
-    .from("entity_trackers")
-    .select("tracker_id, is_enabled, tracker:trackers(*, fields:tracker_fields(*))")
+    .from("entity_metrics")
+    .select("metric_id, is_enabled, metric:metrics(*, fields:metric_fields(*))")
     .eq("entity_id", id);
 
   // Build override map
-  const overrideMap = new Map<string, { is_enabled: boolean; tracker: unknown }>();
+  const overrideMap = new Map<string, { is_enabled: boolean; metric: unknown }>();
   for (const o of overrides || []) {
-    overrideMap.set(o.tracker_id, { is_enabled: o.is_enabled, tracker: o.tracker });
+    overrideMap.set(o.metric_id, { is_enabled: o.is_enabled, metric: o.metric });
   }
 
-  // Deduplicate defaults by tracker_id (tenant row overrides system)
+  // Deduplicate defaults by metric_id (tenant row overrides system)
   const defaultRows = defaults || [];
   const deduped = new Map<string, (typeof defaultRows)[number]>();
   for (const d of defaultRows) {
-    const existing = deduped.get(d.tracker_id);
+    const existing = deduped.get(d.metric_id);
     if (!existing || (d as Record<string, unknown>).tenant_id !== null) {
-      deduped.set(d.tracker_id, d);
+      deduped.set(d.metric_id, d);
     }
   }
   const dedupedDefaults = Array.from(deduped.values());
 
   // Merge: defaults + overrides
-  const result: Array<{ tracker: unknown; is_default: boolean; is_enabled: boolean }> = [];
+  const result: Array<{ metric: unknown; is_default: boolean; is_enabled: boolean }> = [];
 
-  // Add default trackers
+  // Add default metrics
   for (const d of dedupedDefaults) {
-    const override = overrideMap.get(d.tracker_id);
+    const override = overrideMap.get(d.metric_id);
     result.push({
-      tracker: d.tracker,
+      metric: d.metric,
       is_default: true,
       is_enabled: override ? override.is_enabled : true,
     });
-    overrideMap.delete(d.tracker_id);
+    overrideMap.delete(d.metric_id);
   }
 
   // Add non-default overrides that are enabled
   for (const [, override] of overrideMap) {
     if (override.is_enabled) {
       result.push({
-        tracker: override.tracker,
+        metric: override.metric,
         is_default: false,
         is_enabled: true,
       });
@@ -336,12 +336,12 @@ entities.get("/api/v1/entities/:id/trackers", async (c) => {
   return c.json(result);
 });
 
-// PUT /api/v1/entities/:id/trackers — Upsert entity tracker overrides
-entities.put("/api/v1/entities/:id/trackers", async (c) => {
+// PUT /api/v1/entities/:id/metrics — Upsert entity metric overrides
+entities.put("/api/v1/entities/:id/metrics", async (c) => {
   const supabase = createSupabaseClientWithAuth(c.env, c.get("accessToken"));
   const id = c.req.param("id");
 
-  let body: Array<{ tracker_id: string; is_enabled: boolean }>;
+  let body: Array<{ metric_id: string; is_enabled: boolean }>;
   try {
     body = await c.req.json();
   } catch {
@@ -349,22 +349,22 @@ entities.put("/api/v1/entities/:id/trackers", async (c) => {
   }
 
   if (!Array.isArray(body)) {
-    return c.json({ detail: "Body must be an array of { tracker_id, is_enabled }" }, 400);
+    return c.json({ detail: "Body must be an array of { metric_id, is_enabled }" }, 400);
   }
 
   const rows = body.map((item) => ({
     entity_id: id,
-    tracker_id: item.tracker_id,
+    metric_id: item.metric_id,
     is_enabled: item.is_enabled,
   }));
 
   const { error } = await supabase
-    .from("entity_trackers")
-    .upsert(rows, { onConflict: "entity_id,tracker_id" });
+    .from("entity_metrics")
+    .upsert(rows, { onConflict: "entity_id,metric_id" });
 
   if (error) {
     return c.json(
-      { detail: `Error updating entity trackers: ${error.message}` },
+      { detail: `Error updating entity metrics: ${error.message}` },
       400,
     );
   }

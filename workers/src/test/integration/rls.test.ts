@@ -37,7 +37,7 @@ describe("RLS Isolation and Regression", () => {
 
     await createObservationForUser(userA, {
       entity_id: entityA.id,
-      tracker: "mood",
+      metric: "mood",
       field_values: { mood: "good" },
     });
   });
@@ -82,8 +82,8 @@ describe("RLS Isolation and Regression", () => {
       expect(body.every((t) => t.is_system === true)).toBe(true);
     });
 
-    it("Both users CAN see system trackers", async () => {
-      const res = await appGet("/api/v1/trackers", headersB);
+    it("Both users CAN see system metrics", async () => {
+      const res = await appGet("/api/v1/metrics", headersB);
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.length).toBe(18);

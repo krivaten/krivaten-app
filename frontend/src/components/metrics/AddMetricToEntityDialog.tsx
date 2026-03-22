@@ -10,30 +10,30 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { useTrackers } from "@/hooks/useTrackers";
+import { useMetrics } from "@/hooks/useMetrics";
 
 interface Props {
   entityId: string;
-  currentTrackerIds: Set<string>;
+  currentMetricIds: Set<string>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAdd: (trackerIds: string[]) => Promise<void>;
+  onAdd: (metricIds: string[]) => Promise<void>;
 }
 
-export function AddTrackerToEntityDialog({ currentTrackerIds, open, onOpenChange, onAdd }: Props) {
-  const { trackers } = useTrackers();
+export function AddMetricToEntityDialog({ currentMetricIds, open, onOpenChange, onAdd }: Props) {
+  const { metrics } = useMetrics();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
 
-  const availableTrackers = trackers.filter((t) => !currentTrackerIds.has(t.id));
+  const availableMetrics = metrics.filter((t) => !currentMetricIds.has(t.id));
 
-  function toggleTracker(trackerId: string) {
+  function toggleMetric(metricId: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(trackerId)) {
-        next.delete(trackerId);
+      if (next.has(metricId)) {
+        next.delete(metricId);
       } else {
-        next.add(trackerId);
+        next.add(metricId);
       }
       return next;
     });
@@ -44,11 +44,11 @@ export function AddTrackerToEntityDialog({ currentTrackerIds, open, onOpenChange
     setLoading(true);
     try {
       await onAdd(Array.from(selectedIds));
-      toast.success("Trackers added!");
+      toast.success("Metrics added!");
       setSelectedIds(new Set());
       onOpenChange(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to add trackers");
+      toast.error(err instanceof Error ? err.message : "Failed to add metrics");
     } finally {
       setLoading(false);
     }
@@ -58,29 +58,29 @@ export function AddTrackerToEntityDialog({ currentTrackerIds, open, onOpenChange
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add Tracker</DialogTitle>
+          <DialogTitle>Add Metric</DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
-          Select trackers to enable for this entity.
+          Select metrics to enable for this entity.
         </p>
 
         <div className="space-y-2 mt-2">
-          {availableTrackers.length === 0 ? (
+          {availableMetrics.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              All available trackers are already added to this entity.
+              All available metrics are already added to this entity.
             </p>
           ) : (
-            availableTrackers.map((tracker) => (
-              <div key={tracker.id} className="flex items-center gap-2 py-1.5">
+            availableMetrics.map((metric) => (
+              <div key={metric.id} className="flex items-center gap-2 py-1.5">
                 <Checkbox
-                  id={`add-tracker-${tracker.id}`}
-                  checked={selectedIds.has(tracker.id)}
-                  onCheckedChange={() => toggleTracker(tracker.id)}
+                  id={`add-metric-${metric.id}`}
+                  checked={selectedIds.has(metric.id)}
+                  onCheckedChange={() => toggleMetric(metric.id)}
                 />
-                <Label htmlFor={`add-tracker-${tracker.id}`} className="text-sm cursor-pointer flex-1">
-                  {tracker.name}
+                <Label htmlFor={`add-metric-${metric.id}`} className="text-sm cursor-pointer flex-1">
+                  {metric.name}
                 </Label>
-                {tracker.is_system ? (
+                {metric.is_system ? (
                   <Badge variant="secondary" className="text-xs">System</Badge>
                 ) : (
                   <Badge variant="outline" className="text-xs">Custom</Badge>

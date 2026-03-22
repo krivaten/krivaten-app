@@ -2,9 +2,9 @@ import { appGet, appPost } from "./request";
 import { authHeaders, createTestUser } from "./auth";
 
 /**
- * Creates a custom tracker for a user who already has a tenant.
+ * Creates a custom metric for a user who already has a tenant.
  */
-export async function createTrackerForUser(
+export async function createMetricForUser(
   user: TestUser,
   data: {
     name: string;
@@ -29,10 +29,10 @@ export async function createTrackerForUser(
   [key: string]: unknown;
 }> {
   const headers = authHeaders(user.accessToken);
-  const res = await appPost("/api/v1/trackers", data, headers);
+  const res = await appPost("/api/v1/metrics", data, headers);
   if (res.status !== 201) {
     const body = await res.json();
-    throw new Error(`Failed to create tracker: ${JSON.stringify(body)}`);
+    throw new Error(`Failed to create metric: ${JSON.stringify(body)}`);
   }
   return res.json();
 }
@@ -97,23 +97,23 @@ export async function getEntityTypeId(
 }
 
 /**
- * Looks up a tracker by code, returns its UUID.
+ * Looks up a metric by code, returns its UUID.
  */
-export async function getTrackerId(
+export async function getMetricId(
   user: TestUser,
   code: string,
 ): Promise<string> {
   const headers = authHeaders(user.accessToken);
-  const res = await appGet("/api/v1/trackers", headers);
+  const res = await appGet("/api/v1/metrics", headers);
   if (res.status !== 200) {
-    throw new Error(`Failed to look up trackers`);
+    throw new Error(`Failed to look up metrics`);
   }
-  const trackers: Array<{ id: string; code: string }> = await res.json();
-  const tracker = trackers.find((t) => t.code === code);
-  if (!tracker) {
-    throw new Error(`Tracker not found: ${code}`);
+  const metrics: Array<{ id: string; code: string }> = await res.json();
+  const metric = metrics.find((t) => t.code === code);
+  if (!metric) {
+    throw new Error(`Metric not found: ${code}`);
   }
-  return tracker.id;
+  return metric.id;
 }
 
 /**
@@ -154,8 +154,8 @@ export async function createObservationForUser(
   user: TestUser,
   data: {
     entity_id: string;
-    tracker_id?: string;
-    tracker?: string;
+    metric_id?: string;
+    metric?: string;
     observed_at?: string;
     field_values: Record<string, unknown>;
     notes?: string;
@@ -163,7 +163,7 @@ export async function createObservationForUser(
 ): Promise<{
   id: string;
   entity_id: string;
-  tracker_id: string;
+  metric_id: string;
   field_values: Record<string, unknown>;
   observer_id: string;
   [key: string]: unknown;
